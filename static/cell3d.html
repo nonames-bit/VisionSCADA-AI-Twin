@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>VisionSCADA 3D AOI Cell — Three.js WebGL</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0b1120; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+    #canvas3d { width: 100vw; height: 100vh; display: block; }
+    .hud-top {
+      position: absolute; top: 10px; left: 10px; right: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      pointer-events: none; gap: 8px; flex-wrap: wrap;
+    }
+    .hud-card {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px; padding: 8px 12px;
+      font-size: 12px; backdrop-filter: blur(6px);
+    }
+    .hud-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-weight: 700; font-size: 11px; margin-left: 6px;
+    }
+    .ok { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
+    .nok { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <canvas id="canvas3d"></canvas>
+  <div class="hud-top">
+    <div class="hud-card">
+      <strong>CELDA 3D AOI — SOFT-PLC FIFO TRACKING</strong>
+      <span id="hudRecipe" class="hud-badge ok">CAST_100</span>
+      <div style="margin-top:4px; color:#94a3b8;">
+        Encoder: <span id="hudEncoder" style="color:#38bdf8;">0.0</span> mm |
+        Velocidad: <span id="hudSpeed" style="color:#38bdf8;">30</span> PPM |
+        Cola FIFO: <span id="hudFifo" style="color:#fbbf24;">0</span> pzas
+      </div>
+    </div>
+    <div class="hud-card">
+      <div>
+        ⚡ <strong>Edge Decision:</strong> <span id="hudEdgeMs" style="color:#34d399; font-weight:700;">14.2 ms</span>
+        vs ☁️ <strong>Cloud Async:</strong> <span id="hudCloudMs" style="color:#fbbf24; font-weight:700;">840 ms</span>
+      </div>
+      <div style="margin-top:4px;">
+        Última Pieza: <span id="hudSerial" style="color:#e2e8f0; font-weight:600;">--</span>
+        <span id="hudStatus" class="hud-badge ok">OK</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1120);
+    scene.fog = new THREE.FogExp2(0x0b1120, 0.045);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0.5, 4.4, 6.8);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0.2, 0.9, 0);
+    controls.enableDamping = true;
+
+    // Industrial Lighting
+    scene.add(new THREE.AmbientLight(0xdbeafe, 0.65));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    dirLight.position.set(5, 9, 6);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // Camera Flash Spotlight inside Vision Tunnel
+    const flashLight = new THREE.PointLight(0x38bdf8, 0.2, 4.5);
+    flashLight.position.set(-1.6, 2.05, 0);
+    scene.add(flashLight);
+
+    // Cleanroom Epoxy Floor & Grid
+    const floorGeo = new THREE.PlaneGeometry(24, 16);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.2 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const grid = new THREE.GridHelper(20, 20, 0x1e293b, 0x1e293b);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    // Conveyor Frame (-3.5 to +3.5 in X corresponds to 0mm..1400mm)
+    const convGroup = new THREE.Group();
+    scene.add(convGroup);
+
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.3 });
+    const beltMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.15, roughness: 0.85 });
+
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.22, 1.25), frameMat);
+    bed.position.set(0, 0.85, 0);
+    bed.castShadow = true;
+    convGroup.add(bed);
+
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.06, 1.05), beltMat);
+    belt.position.set(0, 0.99, 0);
+    convGroup.add(belt);
+
+    // Belt stripes for visual motion
+    const stripes = [];
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0x475569 });
+    for (let i = 0; i < 14; i++) {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.065, 1.02), stripeMat);
+      s.position.set(-3.25 + i * 0.5, 0.995, 0);
+      convGroup.add(s);
+      stripes.push(s);
+    }
+
+    // 4 Support Legs
+    [-3.1, -1.0, 1.0, 3.1].forEach(x => {
+      [-0.52, 0.52].forEach(z => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.85, 16), frameMat);
+        leg.position.set(x, 0.425, z);
+        convGroup.add(leg);
+      });
+    });
+
+    // Vision Inspection Gantry at x = -1.6 (corresponds to 300 mm camera trigger)
+    const gantryGroup = new THREE.Group();
+    gantryGroup.position.set(-1.6, 0, 0);
+    scene.add(gantryGroup);
+
+    const hoodMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.3, roughness: 0.25 });
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.25, 1.45), hoodMat);
+    hood.position.set(0, 1.68, 0);
+    gantryGroup.add(hood);
+
+    // Telecentric Camera & LED Ring inside Gantry
+    const camBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.16, 0.45, 24),
+      new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.2 })
+    );
+    camBody.position.set(0, 2.05, 0);
+    gantryGroup.add(camBody);
+
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const ledRing = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 12, 32), ringMat);
+    ledRing.rotation.x = Math.PI / 2;
+    ledRing.position.set(0, 1.78, 0);
+    gantryGroup.add(ledRing);
+
+    // Laser Sensor Beam at entrance of Vision Gantry
+    const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const laserBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.15, 8), laserMat);
+    laserBeam.rotation.x = Math.PI / 2;
+    laserBeam.position.set(-0.45, 1.12, 0);
+    gantryGroup.add(laserBeam);
+
+    // Pneumatic High-Speed Reject Pusher at x = +1.85 (corresponds to 1100 mm)
+    const pusherGroup = new THREE.Group();
+    pusherGroup.position.set(1.85, 1.18, -0.82);
+    scene.add(pusherGroup);
+
+    const cylHousing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.38, 0.28, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8, roughness: 0.2 })
+    );
+    pusherGroup.add(cylHousing);
+
+    const pistonRod = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.75, 16),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+    );
+    pistonRod.rotation.x = Math.PI / 2;
+    pistonRod.position.set(0, 0, 0.35);
+    pusherGroup.add(pistonRod);
+
+    const pusherPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.22, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.4, roughness: 0.3 })
+    );
+    pusherPlate.position.set(0, 0, 0.72);
+    pusherGroup.add(pusherPlate);
+
+    // Red Scrap Reject Chute (front side of pusher at x = 1.85, z = +0.95)
+    const scrapBin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 0.75, 0.85),
+      new THREE.MeshStandardMaterial({ color: 0x991b1b, metalness: 0.3, roughness: 0.5 })
+    );
+    scrapBin.position.set(1.85, 0.42, 1.05);
+    scene.add(scrapBin);
+
+    // Green OK Outfeed Bin at x = +3.75
+    const okBin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.75, 1.15),
+      new THREE.MeshStandardMaterial({ color: 0x065f46, metalness: 0.3, roughness: 0.5 })
+    );
+    okBin.position.set(3.85, 0.42, 0);
+    scene.add(okBin);
+
+    // Dynamic 3D Part Meshes mapped by serial_number
+    const partMeshes = new Map();
+    let lastKnownSerial = "";
+    let flashIntensity = 0;
+
+    function createPartMesh(recipe, status) {
+      const group = new THREE.Group();
+      const tint = status === "NOK" ? 0xfca5a5 : 0xffffff;
+      if (recipe === "CAST_100") {
+        // Metallic Cast-Iron Pump Impeller
+        const outer = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28, 0.28, 0.11, 28),
+          new THREE.MeshStandardMaterial({ color: status === "NOK" ? 0xb91c1c : 0x94a3b8, metalness: 0.85, roughness: 0.32 })
+        );
+        outer.position.y = 0.06;
+        group.add(outer);
+        const hub = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11, 0.11, 0.16, 20),
+          new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.2 })
+        );
+        hub.position.y = 0.08;
+        group.add(hub);
+      } else if (recipe === "PACK_200") {
+        // Pharmaceutical Glass Vial + Blue Crimp Cap
+        const vial = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.16, 0.16, 0.38, 24),
+          new THREE.MeshStandardMaterial({
+            color: status === "NOK" ? 0xef4444 : 0x38bdf8,
+            transparent: true,
+            opacity: 0.78,
+            metalness: 0.1,
+            roughness: 0.15
+          })
+        );
+        vial.position.y = 0.19;
+        group.add(vial);
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11, 0.11, 0.08, 20),
+          new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.25 })
+        );
+        cap.position.y = 0.41;
+        group.add(cap);
+      } else {
+        // Green SMT PCB Board + Gold Traces + QFP Chip
+        const pcb = new THREE.Mesh(
+          new THREE.BoxGeometry(0.46, 0.04, 0.42),
+          new THREE.MeshStandardMaterial({ color: status === "NOK" ? 0x991b1b : 0x15803d, metalness: 0.3, roughness: 0.4 })
+        );
+        pcb.position.y = 0.03;
+        group.add(pcb);
+        const chip = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.05, 0.16),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.3 })
+        );
+        chip.position.y = 0.06;
+        group.add(chip);
+      }
+      return group;
+    }
+
+    let liveState = null;
+
+    async function pollState() {
+      try {
+        const res = await fetch('/api/state');
+        liveState = await res.json();
+        const conv = liveState.udts.UDT_ConveyorAxis;
+        const cam = liveState.udts.UDT_VisionCamera;
+        const rej = liveState.udts.UDT_RejectActuator;
+        const batch = liveState.udts.UDT_ProductionBatch;
+
+        document.getElementById('hudRecipe').textContent = batch.Active_Recipe;
+        document.getElementById('hudEncoder').textContent = conv.Encoder_mm.toFixed(0);
+        document.getElementById('hudSpeed').textContent = conv.Actual_PPM.toFixed(0);
+        document.getElementById('hudFifo').textContent = conv.FIFO_Queue_Depth;
+        document.getElementById('hudEdgeMs').textContent = cam.Last_Edge_Latency_ms.toFixed(1) + ' ms';
+        document.getElementById('hudCloudMs').textContent = cam.Last_Cloud_Latency_ms.toFixed(0) + ' ms';
+        document.getElementById('hudSerial').textContent = cam.Last_Serial;
+
+        const stEl = document.getElementById('hudStatus');
+        stEl.textContent = cam.Last_Status + ' (' + cam.Last_Defect_Class + ')';
+        stEl.className = 'hud-badge ' + (cam.Last_Status === 'OK' ? 'ok' : 'nok');
+
+        if (cam.Last_Serial !== lastKnownSerial) {
+          lastKnownSerial = cam.Last_Serial;
+          flashIntensity = 3.2;
+        }
+      } catch (e) {}
+    }
+
+    setInterval(pollState, 350);
+    pollState();
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      controls.update();
+
+      // Animate conveyor belt stripes
+      const running = liveState?.udts?.UDT_ConveyorAxis?.Running_FB ?? true;
+      const beltSpeed = running ? 1.4 : 0.0;
+      stripes.forEach(s => {
+        s.position.x += beltSpeed * dt;
+        if (s.position.x > 3.4) s.position.x -= 6.8;
+      });
+
+      // Camera Flash decay
+      if (flashIntensity > 0.25) {
+        flashIntensity = Math.max(0.2, flashIntensity - dt * 7.5);
+        flashLight.intensity = flashIntensity;
+        ringMat.color.setHex(flashIntensity > 1.2 ? 0xffffff : 0x38bdf8);
+      }
+
+      // Pneumatic Reject Solenoid extension
+      const solenoidActive = liveState?.udts?.UDT_RejectActuator?.Solenoid_Active ?? false;
+      const targetZ = solenoidActive ? 0.55 : 0.0;
+      pistonRod.position.z += (0.35 + targetZ - pistonRod.position.z) * 0.25;
+      pusherPlate.position.z = pistonRod.position.z + 0.37;
+
+      // Sync FIFO Queue parts in 3D space (pos_mm 0..1400 -> x -3.2..+3.2)
+      const fifo = liveState?.fifo_queue || [];
+      const activeSerials = new Set();
+      fifo.forEach(item => {
+        activeSerials.add(item.serial_number);
+        let mesh = partMeshes.get(item.serial_number);
+        if (!mesh) {
+          mesh = createPartMesh(item.product_recipe, item.edge_status);
+          scene.add(mesh);
+          partMeshes.set(item.serial_number, mesh);
+        }
+        const targetX = -3.1 + ((item.pos_mm - 100.0) / 1300.0) * 6.4;
+        mesh.position.x += (targetX - mesh.position.x) * 0.25;
+        mesh.position.y = 1.03;
+        if (item.actuated && item.plc_action !== 'PASS_CONVEYOR') {
+          mesh.position.z += (0.95 - mesh.position.z) * 0.22;
+          mesh.position.y = Math.max(0.55, mesh.position.y - 0.08);
+        } else {
+          mesh.position.z = 0;
+        }
+        mesh.rotation.y += dt * 0.6;
+      });
+
+      for (const [sn, mesh] of partMeshes.entries()) {
+        if (!activeSerials.has(sn)) {
+          scene.remove(mesh);
+          partMeshes.delete(sn);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

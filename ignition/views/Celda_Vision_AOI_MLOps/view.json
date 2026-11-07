@@ -1,0 +1,580 @@
+{
+  "custom": {
+    "UDT_ConveyorAxis__Run_Cmd": true,
+    "UDT_ConveyorAxis__Running_FB": true,
+    "UDT_ConveyorAxis__Speed_PPM_SP": 30.0,
+    "UDT_ConveyorAxis__Actual_PPM": 30.0,
+    "UDT_ConveyorAxis__Belt_Speed_mm_s": 420.0,
+    "UDT_ConveyorAxis__Encoder_mm": 0.0,
+    "UDT_ConveyorAxis__E_Stop_Active": false,
+    "UDT_ConveyorAxis__FIFO_Queue_Depth": 0,
+    "UDT_VisionCamera__Trigger_Pulse": false,
+    "UDT_VisionCamera__Trigger_Count": 0,
+    "UDT_VisionCamera__Light_Ring_PWM": 92.0,
+    "UDT_VisionCamera__Confidence_Threshold": 0.72,
+    "UDT_VisionCamera__Last_Serial": "NONE",
+    "UDT_VisionCamera__Last_Status": "OK",
+    "UDT_VisionCamera__Last_Defect_Class": "OK",
+    "UDT_VisionCamera__Last_Confidence": 0.98,
+    "UDT_VisionCamera__Last_Edge_Latency_ms": 14.2,
+    "UDT_VisionCamera__Last_Cloud_Latency_ms": 820.0,
+    "UDT_VisionCamera__Cloud_Queue_Pending": 0,
+    "UDT_VisionCamera__Edge_Model_Version": "v1.0.0",
+    "UDT_VisionCamera__Shadow_Model_Version": "v1.1.0-shadow",
+    "UDT_VisionCamera__Shadow_Agreement_Pct": 100.0,
+    "UDT_VisionCamera__Drift_PSI_Score": 0.04,
+    "UDT_VisionCamera__Lens_Fault_Active": false,
+    "UDT_RejectActuator__Solenoid_Active": false,
+    "UDT_RejectActuator__Pass_Total": 0,
+    "UDT_RejectActuator__Reject_Total": 0,
+    "UDT_RejectActuator__Watchdog_Trips": 0,
+    "UDT_RejectActuator__Bin_Count": 0,
+    "UDT_RejectActuator__Bin_Capacity": 25,
+    "UDT_RejectActuator__Bin_Level_Pct": 0.0,
+    "UDT_RejectActuator__Clear_Bin_Cmd": false,
+    "UDT_RejectActuator__Last_PLC_Action": "PASS_CONVEYOR",
+    "UDT_RejectActuator__Travel_Window_ms": 480.0,
+    "UDT_ProductionBatch__Active_Recipe": "CAST_100",
+    "UDT_ProductionBatch__Batch_Code": "LOT-CAST-2026-01",
+    "UDT_ProductionBatch__Supplier_Code": "SUP-MTY-01",
+    "UDT_ProductionBatch__Supplier_Name": "Fundiciones del Norte S.A.",
+    "UDT_ProductionBatch__OEE_Availability": 98.5,
+    "UDT_ProductionBatch__OEE_Performance": 94.0,
+    "UDT_ProductionBatch__OEE_Quality_FPY": 96.0,
+    "UDT_ProductionBatch__OEE_Global": 88.9,
+    "UDT_ProductionBatch__SPC_Subgroup_N": 20,
+    "UDT_ProductionBatch__SPC_Last_P": 0.04,
+    "UDT_ProductionBatch__SPC_P_Bar": 0.045,
+    "UDT_ProductionBatch__SPC_UCL": 0.184,
+    "UDT_ProductionBatch__SPC_LCL": 0.0,
+    "UDT_ProductionBatch__SPC_WE_Rule_Status": "IN_CONTROL",
+    "UDT_ProductionBatch__Active_Alarms_Count": 0
+  },
+  "params": {},
+  "propConfig": {
+    "custom.UDT_ConveyorAxis__Run_Cmd": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Run_Cmd",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__Running_FB": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Running_FB",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__Speed_PPM_SP": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Speed_PPM_SP",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__Actual_PPM": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Actual_PPM",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__Belt_Speed_mm_s": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Belt_Speed_mm_s",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__Encoder_mm": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Encoder_mm",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__E_Stop_Active": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/E_Stop_Active",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ConveyorAxis__FIFO_Queue_Depth": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/FIFO_Queue_Depth",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Trigger_Pulse": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Trigger_Pulse",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Trigger_Count": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Trigger_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Light_Ring_PWM": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Light_Ring_PWM",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Confidence_Threshold": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Confidence_Threshold",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Serial": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Serial",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Status": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Status",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Defect_Class": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Defect_Class",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Confidence": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Confidence",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Edge_Latency_ms": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Edge_Latency_ms",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Cloud_Latency_ms": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Cloud_Latency_ms",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Cloud_Queue_Pending": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Cloud_Queue_Pending",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Edge_Model_Version": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Edge_Model_Version",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Shadow_Model_Version": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Shadow_Model_Version",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Shadow_Agreement_Pct": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Shadow_Agreement_Pct",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Drift_PSI_Score": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Drift_PSI_Score",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Lens_Fault_Active": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Lens_Fault_Active",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Solenoid_Active": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Solenoid_Active",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Pass_Total": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Pass_Total",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Reject_Total": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Reject_Total",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Watchdog_Trips": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Watchdog_Trips",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Bin_Count": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Bin_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Bin_Capacity": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Bin_Capacity",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Bin_Level_Pct": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Bin_Level_Pct",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Clear_Bin_Cmd": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Clear_Bin_Cmd",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Last_PLC_Action": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Last_PLC_Action",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Travel_Window_ms": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Travel_Window_ms",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Active_Recipe": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Active_Recipe",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Batch_Code": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Batch_Code",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Supplier_Code": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Supplier_Code",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Supplier_Name": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Supplier_Name",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__OEE_Availability": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Availability",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__OEE_Performance": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Performance",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__OEE_Quality_FPY": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Quality_FPY",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__OEE_Global": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Global",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__SPC_Subgroup_N": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_Subgroup_N",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__SPC_Last_P": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_Last_P",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__SPC_P_Bar": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_P_Bar",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__SPC_UCL": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_UCL",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__SPC_LCL": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_LCL",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__SPC_WE_Rule_Status": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_WE_Rule_Status",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Active_Alarms_Count": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Active_Alarms_Count",
+          "bidirectional": false
+        }
+      }
+    }
+  },
+  "root": {
+    "type": "ia.container.flex",
+    "meta": {
+      "name": "root"
+    },
+    "props": {
+      "direction": "column",
+      "style": {
+        "backgroundColor": "#090e17",
+        "width": "100%",
+        "height": "100%"
+      }
+    },
+    "children": [
+      {
+        "type": "ia.display.iframe",
+        "meta": {
+          "name": "VisionSCADA_WebDev_Frame"
+        },
+        "position": {
+          "grow": 1,
+          "basis": "100%"
+        },
+        "props": {
+          "src": "http://127.0.0.1:8020/",
+          "style": {
+            "border": "none",
+            "width": "100%",
+            "height": "100%"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reporte Oficial de Calidad & MLOps — VisionSCADA AI Twin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f8fafc; color: #0f172a; padding: 28px;
+      line-height: 1.45;
+    }
+    .report-sheet {
+      max-width: 1060px; margin: 0 auto; background: #ffffff;
+      border: 1px solid #cbd5e1; border-radius: 8px; padding: 32px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      border-bottom: 3px solid #0284c7; padding-bottom: 16px; margin-bottom: 20px;
+    }
+    h1 { font-size: 22px; color: #0f172a; }
+    h2 { font-size: 15px; color: #0369a1; text-transform: uppercase; margin: 20px 0 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+    .kpi-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; background: #f1f5f9; }
+    .kpi-label { font-size: 11px; color: #475569; text-transform: uppercase; font-weight: 700; }
+    .kpi-val { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+    th, td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; }
+    th { background: #e2e8f0; font-weight: 700; }
+    .rca-box {
+      background: #f0f9ff; border-left: 4px solid #0284c7;
+      padding: 14px; border-radius: 4px; font-size: 13px; white-space: pre-line;
+    }
+    .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
+    .evidence-card { border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; text-align: center; font-size: 11px; }
+    .evidence-card img { width: 100%; height: 130px; object-fit: contain; background: #0f172a; border-radius: 4px; }
+    .btn-print {
+      background: #0284c7; color: #fff; border: none; padding: 8px 16px;
+      border-radius: 6px; font-weight: 700; cursor: pointer;
+    }
+    @media print { .no-print { display: none !important; } body { padding: 0; background: #fff; } .report-sheet { border: none; box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <div class="report-sheet">
+    <div class="header">
+      <div>
+        <h1>INFORME EJECUTIVO DE CALIDAD AOI, SPC (CARTA p) & AUDITORÍA MLOps</h1>
+        <div style="font-size:12px; color:#475569; margin-top:4px;">
+          Planta Norte — Línea 01 — Celda de Visión Artificial `Celda_Vision_01` | Estándar ISA-95 / ISA-18.2
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir / Exportar PDF</button>
+        <div id="repTimestamp" style="font-size:11px; color:#64748b; margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-box">
+        <div class="kpi-label">OEE Global (Disp × Rend × Cal)</div>
+        <div class="kpi-val" id="repOee">--%</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">First Pass Yield (FPY)</div>
+        <div class="kpi-val" id="repFpy">--%</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Latencia Edge vs Cloud Async</div>
+        <div class="kpi-val" id="repLatency">-- ms</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Estado SPC Carta p (Western Electric)</div>
+        <div class="kpi-val" id="repSpc">--</div>
+      </div>
+    </div>
+
+    <h2>1. Diagnóstico Automático de Causa Raíz (Copiloto IA — Usuario Read-Only SQL `copilot_ro`)</h2>
+    <div class="rca-box" id="repRca">Cargando análisis desde PostgreSQL...</div>
+
+    <h2>2. Desempeño de Modelos en el Registro MLOps (Producción vs. Shadow Mode)</h2>
+    <table id="repModelsTable">
+      <thead>
+        <tr>
+          <th>Receta / Producto</th>
+          <th>Versión</th>
+          <th>Rol</th>
+          <th>Algoritmo</th>
+          <th>Accuracy</th>
+          <th>Precision</th>
+          <th>Recall</th>
+          <th>F1-Score</th>
+          <th>ROC-AUC</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>3. Trazabilidad por Proveedor y Tasa de Defectos (Genealogía SQL)</h2>
+    <table id="repSuppliersTable">
+      <thead>
+        <tr>
+          <th>Código Proveedor</th>
+          <th>Nombre de Planta</th>
+          <th>Ciudad / País</th>
+          <th>Especialidad</th>
+          <th>Inspeccionadas</th>
+          <th>Rechazadas (NOK)</th>
+          <th>% Defecto en Vivo</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>4. Galería de Evidencia Óptica Reciente (Mapas de Calor Grad-CAM + Bounding Boxes)</h2>
+    <div class="gallery" id="repGallery"></div>
+  </div>
+
+  <script>
+    async function loadReport() {
+      document.getElementById('repTimestamp').textContent = 'Generado: ' + new Date().toLocaleString();
+      const [stRes, anRes, copRes] = await Promise.all([
+        fetch('/api/state'),
+        fetch('/api/analytics'),
+        fetch('/api/copilot/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: 'Genera resumen ejecutivo de turno, causa raíz de defectos, estado SPC y recomendación.' })
+        })
+      ]);
+      const st = await stRes.json();
+      const an = await anRes.json();
+      const cop = await copRes.json();
+
+      const batch = st.udts.UDT_ProductionBatch;
+      const cam = st.udts.UDT_VisionCamera;
+      document.getElementById('repOee').textContent = batch.OEE_Global + '%';
+      document.getElementById('repFpy').textContent = batch.OEE_Quality_FPY + '%';
+      document.getElementById('repLatency').textContent = `${cam.Last_Edge_Latency_ms} ms / ${cam.Last_Cloud_Latency_ms} ms`;
+      document.getElementById('repSpc').textContent = `${batch.SPC_WE_Rule_Status} (p=${batch.SPC_Last_P})`;
+      document.getElementById('repRca').textContent = cop.answer_markdown.replace(/###/g, '').replace(/\*\*/g, '');
+
+      const mBody = document.querySelector('#repModelsTable tbody');
+      mBody.innerHTML = an.model_registry.map(m => `
+        <tr>
+          <td><strong>${m.product_recipe}</strong></td>
+          <td>${m.model_version}</td>
+          <td>${m.deployment_role}</td>
+          <td>${m.algorithm}</td>
+          <td>${(m.accuracy * 100).toFixed(1)}%</td>
+          <td>${(m.precision_score * 100).toFixed(1)}%</td>
+          <td>${(m.recall_score * 100).toFixed(1)}%</td>
+          <td><strong>${(m.f1_score * 100).toFixed(1)}%</strong></td>
+          <td>${(m.roc_auc * 100).toFixed(1)}%</td>
+        </tr>
+      `).join('');
+
+      const sBody = document.querySelector('#repSuppliersTable tbody');
+      sBody.innerHTML = an.suppliers_map.map(s => `
+        <tr>
+          <td><strong>${s.supplier_code}</strong></td>
+          <td>${s.name}</td>
+          <td>${s.city}, ${s.country}</td>
+          <td>${s.specialty_recipe}</td>
+          <td>${s.total_inspected}</td>
+          <td>${s.total_nok}</td>
+          <td><strong>${s.live_defect_pct}%</strong></td>
+        </tr>
+      `).join('');
+
+      const gal = document.getElementById('repGallery');
+      gal.innerHTML = an.inspections_table.slice(0, 8).map(item => `
+        <div class="evidence-card">
+          <img src="/${item.heatmap_rel_path}" alt="${item.serial_number}" />
+          <div style="margin-top:4px; font-weight:700;">${item.serial_number} (${item.edge_status})</div>
+          <div style="color:#475569;">${item.edge_defect_class} — ${(item.edge_confidence * 100).toFixed(1)}%</div>
+          <div style="color:#0284c7;">Cloud: ${item.cloud_audit_state}</div>
+        </div>
+      `).join('');
+    }
+    loadReport();
+  </script>
+</body>
+</html>

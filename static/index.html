@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>VisionSCADA AI Twin — Ignition Perspective & Edge/Cloud MLOps Console</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090e17;
+      --bg-panel: #111827;
+      --bg-card: #1e293b;
+      --border: #334155;
+      --accent: #0ea5e9;
+      --ok: #10b981;
+      --warn: #f59e0b;
+      --crit: #ef4444;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark); color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px;
+    }
+    /* Top ISA-101 / ISA-18.2 Header & Scenario Bar */
+    .top-bar {
+      background: #0f172a; border-bottom: 1px solid var(--border);
+      padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; color: #38bdf8; }
+    .controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    select, input, button {
+      background: #1e293b; color: var(--text); border: 1px solid #475569;
+      border-radius: 6px; padding: 6px 10px; font-size: 12px;
+    }
+    button { cursor: pointer; font-weight: 600; transition: 0.15s; }
+    button:hover { border-color: #38bdf8; background: #0f172a; }
+    .btn-primary { background: #0284c7; border-color: #0369a1; color: #fff; }
+    .btn-primary:hover { background: #0369a1; }
+    .btn-scen { font-size: 11px; padding: 5px 9px; }
+    .btn-scen.active { background: #dc2626; border-color: #f87171; color: #fff; }
+
+    /* ISA-18.2 Alarm Banner */
+    .alarm-banner {
+      background: #1e1b4b; border-bottom: 1px solid #4338ca;
+      padding: 6px 16px; display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px;
+    }
+    .alarm-banner.crit { background: rgba(185, 28, 28, 0.35); border-color: #ef4444; }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      display: flex; background: #111827; border-bottom: 1px solid var(--border);
+      padding: 0 16px; gap: 4px; overflow-x: auto;
+    }
+    .tab-btn {
+      background: transparent; border: none; border-bottom: 3px solid transparent;
+      border-radius: 0; padding: 11px 16px; color: var(--muted); font-weight: 700;
+    }
+    .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; background: rgba(56, 189, 248, 0.08); }
+
+    .view-section { display: none; padding: 16px; max-width: 1650px; margin: 0 auto; }
+    .view-section.active { display: block; }
+
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+    .grid-2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+    .panel {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px;
+    }
+    .panel-title {
+      font-size: 12px; font-weight: 800; text-transform: uppercase;
+      color: #38bdf8; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .kpi-big { font-size: 26px; font-weight: 800; margin: 4px 0; }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-block; }
+    .badge.ok { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+    .badge.nok { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+    .badge.warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid #1e293b; padding: 6px 8px; text-align: left; }
+    th { color: var(--muted); font-weight: 700; background: rgba(30, 41, 59, 0.5); }
+
+    .cam-frames { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cam-box { background: #090e17; border: 1px solid var(--border); border-radius: 6px; padding: 8px; text-align: center; }
+    .cam-box img { width: 100%; max-height: 235px; object-fit: contain; border-radius: 4px; }
+
+    #supplierMap { width: 100%; height: 295px; border-radius: 6px; border: 1px solid var(--border); }
+    canvas.chart-canvas { width: 100%; height: 230px; background: #090e17; border-radius: 6px; border: 1px solid #1e293b; }
+    .uns-feed {
+      font-family: Consolas, monospace; font-size: 11px; background: #050811;
+      border: 1px solid #1e293b; border-radius: 6px; padding: 8px; height: 230px; overflow-y: auto;
+    }
+    .sql-cite {
+      font-family: Consolas, monospace; font-size: 11px; background: #090e17;
+      border-left: 3px solid #38bdf8; padding: 8px; margin-top: 6px; color: #93c5fd; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <!-- TOP CONTROL & SCENARIO INJECTOR BAR -->
+  <div class="top-bar">
+    <div class="brand">
+      <span>👁️‍🗨️ VisionSCADA AI Twin</span>
+      <span class="badge ok" id="plcRunBadge">SOFT-PLC RUN (100ms)</span>
+    </div>
+
+    <div class="controls-row">
+      <label>👤 Rol RBAC:</label>
+      <select id="rbacRole">
+        <option value="ML_Engineer">ML_Engineer (Full MLOps + Umbrales)</option>
+        <option value="Quality_Engineer">Quality_Engineer (Receta + HITL)</option>
+        <option value="Operator">Operator (Banda + Bin)</option>
+        <option value="Plant_Manager">Plant_Manager (Todo + Escenarios)</option>
+      </select>
+
+      <label>📦 Lote / Receta:</label>
+      <select id="recipeSelect" onchange="changeRecipe(this.value)">
+        <option value="CAST_100">Lote 1: CAST_100 (Impulsores Fundición)</option>
+        <option value="PACK_200">Lote 2: PACK_200 (Viales & Cápsulas MVTec)</option>
+        <option value="PCB_300">Lote 3: PCB_300 (Placas SMT DeepPCB)</option>
+      </select>
+
+      <span style="color:#64748b;">|</span>
+      <strong style="color:#fbbf24; font-size:11px;">🎬 MODO DEMO:</strong>
+      <button class="btn-scen" id="btnScen1" onclick="toggleScenario('bad_supplier_lot')">1. Proveedor B Lote Malo (SPC 3σ)</button>
+      <button class="btn-scen" id="btnScen2" onclick="toggleScenario('dirty_lens_drift')">2. Lente Sucio (Data Drift)</button>
+      <button class="btn-scen" id="btnScen3" onclick="toggleScenario('cloud_outage')">3. Corte Cloud (Store & Forward)</button>
+      <button class="btn-scen" onclick="triggerScenario('reset_all', true)">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- ISA-18.2 ALARM BANNER -->
+  <div class="alarm-banner" id="alarmBanner">
+    <div id="alarmBannerText">✅ <strong>ISA-18.2 ALARM PIPELINE:</strong> Sin alarmas activas. Proceso en control estadístico.</div>
+    <div id="alarmAckContainer"></div>
+  </div>
+
+  <!-- 5 PERSPECTIVE VIEWS NAVIGATION -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab(0)">🏠 Vista 0: Home OEE, UDTs & Lazo Edge/Cloud</button>
+    <button class="tab-btn" onclick="switchTab(1)">🎥 Vista 1: Celda 3D AOI (Three.js) & HUD Cámara</button>
+    <button class="tab-btn" onclick="switchTab(2)">📈 Vista 2: SPC (Carta p Western Electric), Pareto, Mapa & UNS MQTT</button>
+    <button class="tab-btn" onclick="switchTab(3)">🧪 Vista 3: Laboratorio MLOps (HITL, Shadow Mode, Drift & RBAC Audit)</button>
+    <button class="tab-btn" onclick="switchTab(4)">💬 Vista 4: Copiloto IA (Guardrails SQL Read-Only) & Reporte PDF</button>
+  </div>
+
+  <!-- ==================== VISTA 0: HOME / LINE OVERVIEW ==================== -->
+  <div class="view-section active" id="view0">
+    <div class="grid-4">
+      <div class="panel">
+        <div class="panel-title">OEE GLOBAL DE CELDA <span class="badge ok">ISA-95 KPI</span></div>
+        <div class="kpi-big" id="v0Oee" style="color:#38bdf8;">88.9%</div>
+        <div style="color:var(--muted); font-size:12px;">
+          Disp: <strong id="v0Avail">98%</strong> × Rend: <strong id="v0Perf">94%</strong> × Cal (FPY): <strong id="v0Qual">96%</strong>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">POR QUÉ DECIDE EL EDGE (LAZO DE CONTROL)</div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+          <div>⚡ Edge: <strong id="v0EdgeMs" style="color:#34d399; font-size:20px;">14.2 ms</strong></div>
+          <div>☁️ Cloud: <strong id="v0CloudMs" style="color:#fbbf24; font-size:18px;">845 ms</strong></div>
+        </div>
+        <div style="margin-top:6px; font-size:11px; color:var(--muted);">
+          Ventana física Cámara→Pistón: <strong id="v0TravelMs" style="color:#f8fafc;">480 ms</strong> |
+          Cola Store & Forward: <strong id="v0StoreFwd" style="color:#38bdf8;">0</strong>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">CONTADORES SOFT-PLC & CONTENEDOR SCRAP</div>
+        <div class="kpi-big">
+          <span style="color:#34d399;" id="v0Pass">0</span> OK /
+          <span style="color:#f87171;" id="v0Reject">0</span> NOK
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+          <span style="font-size:12px; color:var(--muted);">Bin Scrap: <strong id="v0BinPct">0%</strong></span>
+          <button onclick="writePlcTag('UDT_RejectActuator','Clear_Bin_Cmd',true)">Vaciar Contenedor Scrap</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ESTADO CARTA p (SPC) & DRIFT PSI</div>
+        <div class="kpi-big" id="v0SpcStatus" style="font-size:20px; color:#34d399;">IN_CONTROL</div>
+        <div style="font-size:12px; color:var(--muted);">
+          Último $p$: <strong id="v0SpcP">0.04</strong> (UCL $3\sigma$: <strong id="v0SpcUcl">0.18</strong>) |
+          Drift PSI: <strong id="v0Psi">0.04</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 IGNITION UDT INSTANCES LIVE INSPECTOR -->
+    <div class="grid-4">
+      <div class="panel">
+        <div class="panel-title">UDT 1: UDT_ConveyorAxis</div>
+        <table id="tblUdtConv"></table>
+      </div>
+      <div class="panel">
+        <div class="panel-title">UDT 2: UDT_VisionCamera</div>
+        <table id="tblUdtCam"></table>
+      </div>
+      <div class="panel">
+        <div class="panel-title">UDT 3: UDT_RejectActuator</div>
+        <table id="tblUdtRej"></table>
+      </div>
+      <div class="panel">
+        <div class="panel-title">UDT 4: UDT_ProductionBatch</div>
+        <table id="tblUdtBatch"></table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">HISTORIAL DE ALARMAS ISA-18.2 (JOURNAL & RECONOCIMIENTO)</div>
+      <table id="tblAlarms">
+        <thead>
+          <tr><th>ID</th><th>Código</th><th>Prioridad</th><th>Estado</th><th>UDT Origen</th><th>Mensaje</th><th>Hora</th><th>Acción</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA 1: CELDA 3D + HUD CÁMARA ==================== -->
+  <div class="view-section" id="view1">
+    <div class="grid-2">
+      <div class="panel" style="padding:0; overflow:hidden; position:relative; min-height:510px;">
+        <iframe src="/cell3d" style="width:100%; height:510px; border:none;"></iframe>
+      </div>
+
+      <div>
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="panel-title">
+            <span>CÁMARA TELECÉNTRICA AOI — FRAME REAL vs. GRAD-CAM HEATMAP</span>
+            <span class="badge ok" id="v1StatusBadge">OK</span>
+          </div>
+          <div class="cam-frames">
+            <div class="cam-box">
+              <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">1. Frame Crudo (`storage/raw_images/`)</div>
+              <img id="v1RawImg" src="" alt="Raw Frame" />
+            </div>
+            <div class="cam-box">
+              <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">2. Inferencia Edge + Grad-CAM + BBox</div>
+              <img id="v1HmImg" src="" alt="Heatmap Frame" />
+            </div>
+          </div>
+          <div style="margin-top:10px; font-size:12px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+            <div>Serie: <strong id="v1Serial">--</strong></div>
+            <div>Defecto: <strong id="v1Defect" style="color:#38bdf8;">--</strong></div>
+            <div>Confianza Edge: <strong id="v1Conf">--%</strong></div>
+            <div>Acción PLC: <strong id="v1PlcAction">--</strong></div>
+            <div>Modelo Shadow: <strong id="v1Shadow">--</strong></div>
+            <div>SHA-256: <code id="v1Hash" style="color:#94a3b8;">--</code></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">MANDOS DE OPERACIÓN BIDIRECCIONALES (OPC-UA SOFT-PLC + RBAC)</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label>Velocidad de Banda (`Speed_PPM_SP`): <strong id="lblSpeedSp">30</strong> PPM</label>
+              <input type="range" min="10" max="55" value="30" style="width:100%;" onchange="writePlcTag('UDT_ConveyorAxis','Speed_PPM_SP',parseFloat(this.value))" oninput="document.getElementById('lblSpeedSp').textContent=this.value" />
+            </div>
+            <div>
+              <label>Umbral Confianza Edge (`Confidence_Threshold`): <strong id="lblThresh">0.72</strong></label>
+              <input type="range" min="0.50" max="0.92" step="0.02" value="0.72" style="width:100%;" onchange="writePlcTag('UDT_VisionCamera','Confidence_Threshold',parseFloat(this.value))" oninput="document.getElementById('lblThresh').textContent=this.value" />
+            </div>
+            <div>
+              <label>Intensidad Anillo LED (`Light_Ring_PWM`): <strong id="lblLight">92</strong>%</label>
+              <input type="range" min="30" max="100" value="92" style="width:100%;" onchange="writePlcTag('UDT_VisionCamera','Light_Ring_PWM',parseFloat(this.value))" oninput="document.getElementById('lblLight').textContent=this.value" />
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn-primary" onclick="writePlcTag('UDT_ConveyorAxis','Run_Cmd',true)">▶ START BANDA</button>
+              <button onclick="writePlcTag('UDT_ConveyorAxis','Run_Cmd',false)">⏸ STOP</button>
+              <button style="background:#dc2626; color:#fff;" onclick="writePlcTag('UDT_ConveyorAxis','E_Stop_Active',!window._estopState)">🛑 E-STOP</button>
+            </div>
+          </div>
+          <div id="rbacFeedbackMsg" style="margin-top:8px; font-size:12px; color:#fbbf24;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA 2: SPC CARTA P + PARETO + MAPA + UNS ==================== -->
+  <div class="view-section" id="view2">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">
+          <span>CARTA DE CONTROL ATRIBUTOS p (SPC) + REGLAS DE WESTERN ELECTRIC</span>
+          <span class="badge ok" id="v2WeBadge">SIN VIOLACIONES</span>
+        </div>
+        <canvas id="spcChartCanvas" class="chart-canvas" width="760" height="230"></canvas>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">DIAGRAMA DE PARETO DE DEFECTOS POR CLASE (SQL EN VIVO)</div>
+        <canvas id="paretoChartCanvas" class="chart-canvas" width="600" height="230"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">MAPA GLOBAL DE TRAZABILIDAD DE PROVEEDORES (GENEALOGÍA GPS + % NOK)</div>
+        <div id="supplierMap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">STREAM UNIFIED NAMESPACE (ISA-95 / SPARKPLUG B MQTT :1883)</div>
+        <div class="uns-feed" id="unsFeedBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA 3: LABORATORIO MLOPS & HITL ==================== -->
+  <div class="view-section" id="view3">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">
+          <span>REGISTRO DE MODELOS: PRODUCCIÓN (`v1.0.0`) vs. SHADOW MODE (`v1.1.0-shadow`)</span>
+          <button class="btn-primary" onclick="promoteShadowModel()">🚀 Promover Shadow a Producción (RBAC ML_Engineer)</button>
+        </div>
+        <table id="tblModelRegistry">
+          <thead>
+            <tr><th>Receta</th><th>Versión</th><th>Rol</th><th>Algoritmo</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>ROC-AUC</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ESTACIÓN HUMAN-IN-THE-LOOP (HITL) — RE-ETIQUETADO DE INSPECTOR</div>
+        <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+          Confirma o corrige la clasificación de cualquier pieza reciente. Se guarda en `human_feedback` (PostgreSQL) para el reentrenamiento del modelo candidato.
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+          <select id="hitlSerialSelect"></select>
+          <select id="hitlStatusSelect">
+            <option value="OK">Confirmar OK (Falso Positivo de Edge)</option>
+            <option value="NOK">Confirmar DEFECTO (NOK Real)</option>
+          </select>
+          <select id="hitlDefectClass">
+            <option value="OK">OK</option>
+            <option value="Porosity_Pinhole">Porosity_Pinhole</option>
+            <option value="Shrinkage_Crack">Shrinkage_Crack</option>
+            <option value="Flash_Burr">Flash_Burr</option>
+            <option value="Neck_Crack">Neck_Crack</option>
+            <option value="Liquid_Contamination">Liquid_Contamination</option>
+            <option value="Copper_Short">Copper_Short</option>
+            <option value="Open_Trace">Open_Trace</option>
+          </select>
+          <button class="btn-primary" onclick="submitHitlFeedback()">💾 Guardar Etiqueta Humana</button>
+        </div>
+        <table id="tblHitlHistory">
+          <thead>
+            <tr><th>Serie</th><th>Receta</th><th>Predicción Edge</th><th>Corrección Inspector</th><th>Usuario (Rol)</th><th>Hora</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">AUDITORÍA ASÍNCRONA CLOUD (STORE-AND-FORWARD) vs. DECISIÓN EDGE</div>
+        <table id="tblCloudCompare">
+          <thead>
+            <tr><th>Serie</th><th>Receta</th><th>Edge (ms)</th><th>Clase Edge</th><th>Estado Cloud</th><th>Diagnóstico Cloud Multimodal</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">REGISTRO DE AUDITORÍA DE SEGURIDAD (RBAC `audit_log`)</div>
+        <table id="tblAuditLog">
+          <thead>
+            <tr><th>Usuario</th><th>Rol</th><th>Acción</th><th>Objeto</th><th>Valor Anterior</th><th>Valor Nuevo</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== VISTA 4: COPILOTO IA + REPORTE PDF ==================== -->
+  <div class="view-section" id="view4">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">
+          <span>🤖 COPILOTO DE INGENIERÍA CON GUARDRAILS (USUARIO SQL READ-ONLY `copilot_ro`)</span>
+          <span class="badge ok">SELECT-ONLY ENFORCED</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <input type="text" id="copilotInput" style="flex:1;" value="¿Por qué subieron los rechazos, qué proveedor los origina y cuál es el estado de la Carta p?" />
+          <button class="btn-primary" onclick="askCopilot()">Consultar Copiloto</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;">
+          <button onclick="quickQuestion('¿Qué proveedor tiene mayor tasa de defectos y qué regla SPC se activó?')">¿Qué proveedor falla más?</button>
+          <button onclick="quickQuestion('Compara la latencia del Edge contra la auditoría Cloud y el umbral actual.')">Comparar Edge vs Cloud</button>
+          <button onclick="quickQuestion('¿Recomiendas algún ajuste de umbral o iluminación por Drift?')">¿Ajustar umbral / Drift?</button>
+        </div>
+
+        <div id="copilotAnswer" style="background:#090e17; border:1px solid var(--border); border-radius:6px; padding:12px; white-space:pre-line; line-height:1.5;">
+          Haz clic en "Consultar Copiloto" para ejecutar diagnóstico con citas SQL verificables.
+        </div>
+
+        <div id="copilotProposalBox" style="margin-top:10px;"></div>
+        <div id="copilotCitations" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel" style="padding:0; overflow:hidden;">
+        <div style="padding:10px 14px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
+          <strong style="color:#38bdf8;">📄 VISTA PREVIA DEL REPORTE OFICIAL DE LOTE / TURNO (PDF)</strong>
+          <a href="/report" target="_blank" style="color:#38bdf8; font-weight:700; text-decoration:none;">↗ Abrir en Pantalla Completa / Imprimir PDF</a>
+        </div>
+        <iframe id="reportIframe" src="/report" style="width:100%; height:540px; border:none; background:#fff;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 0;
+    let mapInstance = null;
+    let mapMarkers = [];
+    window._estopState = false;
+    window._scenarios = { bad_supplier_lot: false, dirty_lens_drift: false, cloud_outage: false };
+
+    function switchTab(idx) {
+      currentTab = idx;
+      document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+      document.querySelectorAll('.view-section').forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (idx === 2) {
+        setTimeout(() => {
+          initOrUpdateMap();
+          pollAnalytics();
+        }, 120);
+      }
+      if (idx === 4) {
+        document.getElementById('reportIframe').contentWindow.location.reload();
+      }
+    }
+
+    async function writePlcTag(udtName, tagName, value) {
+      const role = document.getElementById('rbacRole').value;
+      const res = await fetch('/api/plc/write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          udt_name: udtName,
+          tag_name: tagName,
+          value: value,
+          user_name: role.toLowerCase() + '_user',
+          user_role: role
+        })
+      });
+      const msgEl = document.getElementById('rbacFeedbackMsg');
+      if (!res.ok) {
+        const err = await res.json();
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = '🔒 ' + (err.detail || 'Error de permisos RBAC');
+      } else {
+        msgEl.style.color = '#34d399';
+        msgEl.textContent = `✅ Tag ${udtName}.${tagName} actualizado a ${value} (Registrado en audit_log)`;
+        pollLiveState();
+      }
+    }
+
+    function changeRecipe(recipe) {
+      writePlcTag('UDT_ProductionBatch', 'Active_Recipe', recipe);
+    }
+
+    async function toggleScenario(name) {
+      const nextState = !window._scenarios[name];
+      await triggerScenario(name, nextState);
+    }
+
+    async function triggerScenario(name, active) {
+      const role = document.getElementById('rbacRole').value;
+      await fetch('/api/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: name, active: active, user_name: 'demo_op', user_role: role })
+      });
+      await pollLiveState();
+      await pollAnalytics();
+    }
+
+    function renderUdtTable(elId, obj) {
+      const tbl = document.getElementById(elId);
+      tbl.innerHTML = Object.entries(obj).map(([k, v]) => `
+        <tr><td style="color:#94a3b8;">${k}</td><td style="font-weight:700;">${v}</td></tr>
+      `).join('');
+    }
+
+    async function pollLiveState() {
+      try {
+        const res = await fetch('/api/state');
+        const st = await res.json();
+        const conv = st.udts.UDT_ConveyorAxis;
+        const cam = st.udts.UDT_VisionCamera;
+        const rej = st.udts.UDT_RejectActuator;
+        const batch = st.udts.UDT_ProductionBatch;
+
+        window._estopState = conv.E_Stop_Active;
+        window._scenarios = st.scenarios;
+
+        document.getElementById('btnScen1').classList.toggle('active', st.scenarios.bad_supplier_lot);
+        document.getElementById('btnScen2').classList.toggle('active', st.scenarios.dirty_lens_drift);
+        document.getElementById('btnScen3').classList.toggle('active', st.scenarios.cloud_outage);
+        document.getElementById('recipeSelect').value = batch.Active_Recipe;
+
+        // Top badge
+        const runBadge = document.getElementById('plcRunBadge');
+        runBadge.textContent = conv.Running_FB ? `SOFT-PLC RUN (${conv.Actual_PPM} PPM)` : 'SOFT-PLC STOPPED';
+        runBadge.className = 'badge ' + (conv.Running_FB ? 'ok' : 'nok');
+
+        // Vista 0 KPIs
+        document.getElementById('v0Oee').textContent = batch.OEE_Global + '%';
+        document.getElementById('v0Avail').textContent = batch.OEE_Availability + '%';
+        document.getElementById('v0Perf').textContent = batch.OEE_Performance + '%';
+        document.getElementById('v0Qual').textContent = batch.OEE_Quality_FPY + '%';
+        document.getElementById('v0EdgeMs').textContent = cam.Last_Edge_Latency_ms + ' ms';
+        document.getElementById('v0CloudMs').textContent = cam.Last_Cloud_Latency_ms + ' ms';
+        document.getElementById('v0TravelMs').textContent = rej.Travel_Window_ms + ' ms';
+        document.getElementById('v0StoreFwd').textContent = cam.Cloud_Queue_Pending + (st.cloud_auditor.offline ? ' (OFFLINE BUFFERING)' : ' en cola');
+        document.getElementById('v0Pass').textContent = rej.Pass_Total;
+        document.getElementById('v0Reject').textContent = rej.Reject_Total;
+        document.getElementById('v0BinPct').textContent = rej.Bin_Level_Pct + '%';
+        document.getElementById('v0SpcStatus').textContent = batch.SPC_WE_Rule_Status;
+        document.getElementById('v0SpcStatus').style.color = batch.SPC_WE_Rule_Status === 'NONE' || batch.SPC_WE_Rule_Status === 'IN_CONTROL' ? '#34d399' : '#f87171';
+        document.getElementById('v0SpcP').textContent = batch.SPC_Last_P;
+        document.getElementById('v0SpcUcl').textContent = batch.SPC_UCL;
+        document.getElementById('v0Psi').textContent = cam.Drift_PSI_Score;
+
+        renderUdtTable('tblUdtConv', conv);
+        renderUdtTable('tblUdtCam', cam);
+        renderUdtTable('tblUdtRej', rej);
+        renderUdtTable('tblUdtBatch', batch);
+
+        // ISA-18.2 Alarms
+        const banner = document.getElementById('alarmBanner');
+        const bannerTxt = document.getElementById('alarmBannerText');
+        const alarms = st.active_alarms || [];
+        if (alarms.length > 0) {
+          banner.classList.add('crit');
+          const topA = alarms[0];
+          bannerTxt.innerHTML = `🚨 <strong>ISA-18.2 [${topA.priority}] ${topA.alarm_code}:</strong> ${topA.message} (${alarms.length} activas)`;
+        } else {
+          banner.classList.remove('crit');
+          bannerTxt.innerHTML = `✅ <strong>ISA-18.2 ALARM PIPELINE:</strong> Sin alarmas activas. Proceso en control estadístico.`;
+        }
+
+        const almBody = document.querySelector('#tblAlarms tbody');
+        almBody.innerHTML = alarms.map(a => `
+          <tr>
+            <td>#${a.alarm_id}</td>
+            <td><strong>${a.alarm_code}</strong></td>
+            <td><span class="badge nok">${a.priority}</span></td>
+            <td>${a.state}</td>
+            <td>${a.source_udt}</td>
+            <td>${a.message}</td>
+            <td>${new Date(a.triggered_at).toLocaleTimeString()}</td>
+            <td><button onclick="ackAlarm(${a.alarm_id})">Reconocer (ACK)</button></td>
+          </tr>
+        `).join('') || '<tr><td colspan="8" style="color:#94a3b8;">Sin alarmas activas.</td></tr>';
+
+        // Vista 1 Camera HUD
+        const last = st.last_inspection;
+        if (last && last.serial_number) {
+          document.getElementById('v1RawImg').src = '/' + last.image_rel_path;
+          document.getElementById('v1HmImg').src = '/' + last.heatmap_rel_path;
+          document.getElementById('v1Serial').textContent = last.serial_number;
+          document.getElementById('v1Defect').textContent = last.edge_defect_class;
+          document.getElementById('v1Conf').textContent = (last.edge_confidence * 100).toFixed(1) + '%';
+          document.getElementById('v1PlcAction').textContent = last.plc_action;
+          document.getElementById('v1Shadow').textContent = `${last.shadow_status} (${last.shadow_defect_class})`;
+          document.getElementById('v1Hash').textContent = last.sha256_hash.slice(0, 16) + '...';
+          const b = document.getElementById('v1StatusBadge');
+          b.textContent = last.edge_status + ' — ' + last.edge_defect_class;
+          b.className = 'badge ' + (last.edge_status === 'OK' ? 'ok' : 'nok');
+        }
+
+        // Populate HITL serial dropdown if empty or updated
+        const hitlSel = document.getElementById('hitlSerialSelect');
+        if (st.recent_inspections && st.recent_inspections.length > 0 && hitlSel.options.length === 0) {
+          hitlSel.innerHTML = st.recent_inspections.map(r =>
+            `<option value="${r.serial_number}">${r.serial_number} (${r.edge_defect_class})</option>`
+          ).join('');
+        }
+      } catch (e) {}
+    }
+
+    async function ackAlarm(id) {
+      await fetch('/api/alarms/ack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alarm_id: id, acked_by: document.getElementById('rbacRole').value })
+      });
+      pollLiveState();
+    }
+
+    function drawSpcChart(subgroups) {
+      const c = document.getElementById('spcChartCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      if (!subgroups || subgroups.length === 0) return;
+
+      const padL = 48, padR = 20, padT = 22, padB = 28;
+      const w = c.width - padL - padR;
+      const h = c.height - padT - padB;
+      const maxY = Math.max(0.45, ...subgroups.map(s => Math.max(s.p_value, s.ucl))) * 1.15;
+
+      const yOf = val => padT + h - (val / maxY) * h;
+      const xOf = (i, n) => padL + (n <= 1 ? w / 2 : (i / (n - 1)) * w);
+
+      const last = subgroups[subgroups.length - 1];
+      // Draw UCL (Red dashed) and p_bar (Green dashed)
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(padL, yOf(last.ucl));
+      ctx.lineTo(padL + w, yOf(last.ucl));
+      ctx.stroke();
+      ctx.fillStyle = '#f87171';
+      ctx.fillText(`UCL (3σ) = ${last.ucl}`, padL + 6, yOf(last.ucl) - 5);
+
+      ctx.strokeStyle = '#10b981';
+      ctx.beginPath();
+      ctx.moveTo(padL, yOf(last.p_bar));
+      ctx.lineTo(padL + w, yOf(last.p_bar));
+      ctx.stroke();
+      ctx.fillStyle = '#34d399';
+      ctx.fillText(`p-bar = ${last.p_bar}`, padL + 6, yOf(last.p_bar) - 5);
+      ctx.setLineDash([]);
+
+      // Draw p_value curve
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      subgroups.forEach((s, i) => {
+        const x = xOf(i, subgroups.length);
+        const y = yOf(s.p_value);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Draw points (Red if Western Electric rule violated)
+      subgroups.forEach((s, i) => {
+        const x = xOf(i, subgroups.length);
+        const y = yOf(s.p_value);
+        ctx.beginPath();
+        ctx.arc(x, y, s.we_rule_violated !== 'NONE' ? 5.5 : 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = s.we_rule_violated !== 'NONE' ? '#ef4444' : '#38bdf8';
+        ctx.fill();
+      });
+
+      const weBadge = document.getElementById('v2WeBadge');
+      if (last.we_rule_violated !== 'NONE') {
+        weBadge.textContent = 'VIOLACIÓN: ' + last.we_rule_violated;
+        weBadge.className = 'badge nok';
+      } else {
+        weBadge.textContent = 'CONTROL ESTADÍSTICO OK';
+        weBadge.className = 'badge ok';
+      }
+    }
+
+    function drawParetoChart(pareto) {
+      const c = document.getElementById('paretoChartCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      if (!pareto || pareto.length === 0) return;
+
+      const items = pareto.slice(0, 6);
+      const maxCount = Math.max(1, ...items.map(d => Number(d.total)));
+      const padL = 40, padB = 34, padT = 20;
+      const barW = Math.min(68, (c.width - padL - 20) / items.length - 14);
+
+      items.forEach((d, i) => {
+        const x = padL + i * (barW + 18);
+        const bh = ((Number(d.total) / maxCount) * (c.height - padT - padB));
+        const y = c.height - padB - bh;
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(x, y, barW, bh);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '11px Segoe UI';
+        ctx.fillText(d.total, x + barW / 3, y - 5);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(d.edge_defect_class.slice(0, 12), x, c.height - 12);
+      });
+    }
+
+    function initOrUpdateMap(suppliers) {
+      const mapEl = document.getElementById('supplierMap');
+      if (!mapEl) return;
+      if (!mapInstance) {
+        mapInstance = L.map('supplierMap').setView([28.0, -15.0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap & CartoDB'
+        }).addTo(mapInstance);
+      }
+      mapInstance.invalidateSize();
+      if (!suppliers) return;
+      mapMarkers.forEach(m => mapInstance.removeLayer(m));
+      mapMarkers = [];
+      suppliers.forEach(s => {
+        const pct = Number(s.live_defect_pct);
+        const color = pct > 15 ? '#ef4444' : pct > 7 ? '#f59e0b' : '#10b981';
+        const marker = L.circleMarker([s.lat, s.lon], {
+          radius: 10,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.75
+        }).addTo(mapInstance);
+        marker.bindPopup(`
+          <strong>${s.supplier_code} — ${s.name}</strong><br/>
+          📍 ${s.city}, ${s.country}<br/>
+          Receta: ${s.specialty_recipe}<br/>
+          Inspeccionadas: ${s.total_inspected} | NOK: ${s.total_nok} (<strong>${pct}%</strong>)
+        `);
+        mapMarkers.push(marker);
+      });
+    }
+
+    async function pollAnalytics() {
+      try {
+        const res = await fetch('/api/analytics');
+        const an = await res.json();
+
+        drawSpcChart(an.spc_subgroups);
+        drawParetoChart(an.defect_pareto);
+        if (currentTab === 2) initOrUpdateMap(an.suppliers_map);
+
+        // UNS MQTT Stream
+        const unsEl = document.getElementById('unsFeedBox');
+        unsEl.innerHTML = an.uns_messages.map(m => `
+          <div style="margin-bottom:6px; border-bottom:1px dashed #1e293b; padding-bottom:4px;">
+            <span style="color:#38bdf8;">[${m.type}]</span>
+            <strong style="color:#a7f3d0;">${m.uns_topic}</strong>
+            <div style="color:#94a3b8;">${JSON.stringify(m.metrics)}</div>
+          </div>
+        `).join('');
+
+        // Model Registry
+        document.querySelector('#tblModelRegistry tbody').innerHTML = an.model_registry.map(m => `
+          <tr>
+            <td><strong>${m.product_recipe}</strong></td>
+            <td>${m.model_version}</td>
+            <td><span class="badge ${m.deployment_role === 'PRODUCTION' ? 'ok' : 'warn'}">${m.deployment_role}</span></td>
+            <td>${m.algorithm}</td>
+            <td>${(m.accuracy * 100).toFixed(1)}%</td>
+            <td>${(m.precision_score * 100).toFixed(1)}%</td>
+            <td>${(m.recall_score * 100).toFixed(1)}%</td>
+            <td><strong>${(m.f1_score * 100).toFixed(1)}%</strong></td>
+            <td>${(m.roc_auc * 100).toFixed(1)}%</td>
+          </tr>
+        `).join('');
+
+        // HITL History
+        document.querySelector('#tblHitlHistory tbody').innerHTML = an.human_feedback.map(f => `
+          <tr>
+            <td>${f.serial_number}</td>
+            <td>${f.product_recipe}</td>
+            <td>${f.original_edge_class}</td>
+            <td><span class="badge ${f.corrected_status === 'OK' ? 'ok' : 'nok'}">${f.corrected_status}: ${f.corrected_defect_class}</span></td>
+            <td>${f.inspector_user} (${f.inspector_role})</td>
+            <td>${new Date(f.created_at).toLocaleTimeString()}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="6" style="color:#94a3b8;">Sin re-etiquetados registrados aún.</td></tr>';
+
+        // Cloud vs Edge comparison table
+        document.querySelector('#tblCloudCompare tbody').innerHTML = an.inspections_table.slice(0, 8).map(r => `
+          <tr>
+            <td><strong>${r.serial_number}</strong></td>
+            <td>${r.product_recipe}</td>
+            <td style="color:#34d399;">${r.edge_latency_ms} ms</td>
+            <td><span class="badge ${r.edge_status === 'OK' ? 'ok' : 'nok'}">${r.edge_defect_class}</span></td>
+            <td><span class="badge ${r.cloud_audit_state === 'COMPLETED' ? 'ok' : 'warn'}">${r.cloud_audit_state}</span></td>
+            <td style="color:#94a3b8;">${r.cloud_diagnosis || 'En cola Store-and-Forward...'}</td>
+          </tr>
+        `).join('');
+
+        // Audit Log
+        document.querySelector('#tblAuditLog tbody').innerHTML = an.audit_log.slice(0, 8).map(a => `
+          <tr>
+            <td>${a.actor_user}</td>
+            <td><strong>${a.actor_role}</strong></td>
+            <td>${a.action_type}</td>
+            <td>${a.target_object}</td>
+            <td>${a.old_value}</td>
+            <td style="color:#38bdf8;">${a.new_value}</td>
+          </tr>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function submitHitlFeedback() {
+      const role = document.getElementById('rbacRole').value;
+      const sn = document.getElementById('hitlSerialSelect').value;
+      const st = document.getElementById('hitlStatusSelect').value;
+      const cls = document.getElementById('hitlDefectClass').value;
+      const res = await fetch('/api/mlops/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serial_number: sn,
+          corrected_status: st,
+          corrected_defect_class: st === 'OK' ? 'OK' : cls,
+          inspector_user: role.toLowerCase() + '_01',
+          inspector_role: role
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail);
+      } else {
+        pollAnalytics();
+      }
+    }
+
+    async function promoteShadowModel() {
+      const role = document.getElementById('rbacRole').value;
+      const recipe = document.getElementById('recipeSelect').value;
+      const res = await fetch('/api/mlops/promote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_recipe: recipe, user_name: role.toLowerCase(), user_role: role })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail);
+      } else {
+        pollLiveState();
+        pollAnalytics();
+      }
+    }
+
+    function quickQuestion(q) {
+      document.getElementById('copilotInput').value = q;
+      askCopilot();
+    }
+
+    async function askCopilot() {
+      const q = document.getElementById('copilotInput').value;
+      const res = await fetch('/api/copilot/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q })
+      });
+      const data = await res.json();
+      document.getElementById('copilotAnswer').textContent = data.answer_markdown;
+
+      const propBox = document.getElementById('copilotProposalBox');
+      if (data.pending_action_proposal) {
+        const p = data.pending_action_proposal;
+        propBox.innerHTML = `
+          <div style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; border-radius:6px; padding:10px;">
+            <strong style="color:#fbbf24;">🛡️ ACCIÓN RECOMENDADA POR IA (REQUIERE APROBACIÓN HUMANA — ROL ${p.required_role}):</strong>
+            <div style="margin:4px 0;">${p.title} (<code>${p.udt_name}.${p.tag_name} = ${p.proposed_value}</code>)</div>
+            <button class="btn-primary" onclick="writePlcTag('${p.udt_name}','${p.tag_name}',${p.proposed_value})">
+              ✅ Aprobar y Aplicar Cambio en Soft-PLC
+            </button>
+          </div>
+        `;
+      } else {
+        propBox.innerHTML = '';
+      }
+
+      document.getElementById('copilotCitations').innerHTML = data.sql_citations.map(c => `
+        <div class="sql-cite"><strong>Fuente: ${c.source} (${c.rows_returned} filas)</strong>\n${c.sql}</div>
+      `).join('');
+    }
+
+    setInterval(pollLiveState, 1000);
+    setInterval(pollAnalytics, 3000);
+    pollLiveState();
+    pollAnalytics();
+    askCopilot();
+  </script>
+</body>
+</html>

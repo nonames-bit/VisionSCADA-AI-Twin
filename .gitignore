@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+storage/raw_images/
+storage/heatmaps/
+storage/datasets_cache/
+models/*.joblib
+models/*.onnx
+*.log
+.pytest_cache/

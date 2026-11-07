@@ -1,0 +1,16 @@
+{
+  "scope": "G",
+  "version": 1,
+  "restricted": false,
+  "overridable": true,
+  "files": [
+    "view.json"
+  ],
+  "attributes": {
+    "lastModification": {
+      "actor": "admin",
+      "timestamp": "2026-11-07T23:05:46Z"
+    },
+    "uuid": "7ff73141-cf85-47f6-a1b4-0f98c50d54ec"
+  }
+}

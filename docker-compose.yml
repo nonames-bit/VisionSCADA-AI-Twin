@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  postgres-vision:
+    image: timescale/timescaledb:latest-pg16
+    container_name: twin-timescaledb
+    environment:
+      POSTGRES_USER: twin
+      POSTGRES_PASSWORD: change_me
+      POSTGRES_DB: vision_scada
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  mosquitto-uns:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    restart: unless-stopped
+
+  ignition-scada:
+    image: ignition-cloud:8.3.3
+    container_name: twin-ignition
+    ports:
+      - "8089:8088"
+      - "8043:8043"
+    restart: unless-stopped

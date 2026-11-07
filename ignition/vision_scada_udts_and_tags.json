@@ -1,0 +1,952 @@
+{
+  "name": "VisionSCADA_AI_Twin_Tags",
+  "tagType": "Provider",
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "UDT_ConveyorAxis",
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "name": "Run_Cmd",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Run_Cmd",
+              "readOnly": false
+            },
+            {
+              "name": "Running_FB",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Running_FB",
+              "readOnly": true
+            },
+            {
+              "name": "Speed_PPM_SP",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Speed_PPM_SP",
+              "readOnly": false
+            },
+            {
+              "name": "Actual_PPM",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Actual_PPM",
+              "readOnly": true
+            },
+            {
+              "name": "Belt_Speed_mm_s",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Belt_Speed_mm_s",
+              "readOnly": true
+            },
+            {
+              "name": "Encoder_mm",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Encoder_mm",
+              "readOnly": true
+            },
+            {
+              "name": "E_Stop_Active",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.E_Stop_Active",
+              "readOnly": false
+            },
+            {
+              "name": "FIFO_Queue_Depth",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.FIFO_Queue_Depth",
+              "readOnly": true
+            }
+          ]
+        },
+        {
+          "name": "UDT_VisionCamera",
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "name": "Trigger_Pulse",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Trigger_Pulse",
+              "readOnly": true
+            },
+            {
+              "name": "Trigger_Count",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Trigger_Count",
+              "readOnly": true
+            },
+            {
+              "name": "Light_Ring_PWM",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Light_Ring_PWM",
+              "readOnly": false
+            },
+            {
+              "name": "Confidence_Threshold",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Confidence_Threshold",
+              "readOnly": false
+            },
+            {
+              "name": "Last_Serial",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Serial",
+              "readOnly": true
+            },
+            {
+              "name": "Last_Status",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Status",
+              "readOnly": true
+            },
+            {
+              "name": "Last_Defect_Class",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Defect_Class",
+              "readOnly": true
+            },
+            {
+              "name": "Last_Confidence",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Confidence",
+              "readOnly": true
+            },
+            {
+              "name": "Last_Edge_Latency_ms",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Edge_Latency_ms",
+              "readOnly": true
+            },
+            {
+              "name": "Last_Cloud_Latency_ms",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Cloud_Latency_ms",
+              "readOnly": true
+            },
+            {
+              "name": "Cloud_Queue_Pending",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Cloud_Queue_Pending",
+              "readOnly": true
+            },
+            {
+              "name": "Edge_Model_Version",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Edge_Model_Version",
+              "readOnly": true
+            },
+            {
+              "name": "Shadow_Model_Version",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Shadow_Model_Version",
+              "readOnly": true
+            },
+            {
+              "name": "Shadow_Agreement_Pct",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Shadow_Agreement_Pct",
+              "readOnly": true
+            },
+            {
+              "name": "Drift_PSI_Score",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Drift_PSI_Score",
+              "readOnly": true
+            },
+            {
+              "name": "Lens_Fault_Active",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Lens_Fault_Active",
+              "readOnly": true
+            }
+          ]
+        },
+        {
+          "name": "UDT_RejectActuator",
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "name": "Solenoid_Active",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Solenoid_Active",
+              "readOnly": true
+            },
+            {
+              "name": "Pass_Total",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Pass_Total",
+              "readOnly": true
+            },
+            {
+              "name": "Reject_Total",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Reject_Total",
+              "readOnly": true
+            },
+            {
+              "name": "Watchdog_Trips",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Watchdog_Trips",
+              "readOnly": true
+            },
+            {
+              "name": "Bin_Count",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Bin_Count",
+              "readOnly": true
+            },
+            {
+              "name": "Bin_Capacity",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Bin_Capacity",
+              "readOnly": true
+            },
+            {
+              "name": "Bin_Level_Pct",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Bin_Level_Pct",
+              "readOnly": true
+            },
+            {
+              "name": "Clear_Bin_Cmd",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Clear_Bin_Cmd",
+              "readOnly": false
+            },
+            {
+              "name": "Last_PLC_Action",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Last_PLC_Action",
+              "readOnly": true
+            },
+            {
+              "name": "Travel_Window_ms",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Travel_Window_ms",
+              "readOnly": true
+            }
+          ]
+        },
+        {
+          "name": "UDT_ProductionBatch",
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "name": "Active_Recipe",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Active_Recipe",
+              "readOnly": false
+            },
+            {
+              "name": "Batch_Code",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Batch_Code",
+              "readOnly": true
+            },
+            {
+              "name": "Supplier_Code",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Supplier_Code",
+              "readOnly": true
+            },
+            {
+              "name": "Supplier_Name",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Supplier_Name",
+              "readOnly": true
+            },
+            {
+              "name": "OEE_Availability",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Availability",
+              "readOnly": true
+            },
+            {
+              "name": "OEE_Performance",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Performance",
+              "readOnly": true
+            },
+            {
+              "name": "OEE_Quality_FPY",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Quality_FPY",
+              "readOnly": true
+            },
+            {
+              "name": "OEE_Global",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Global",
+              "readOnly": true
+            },
+            {
+              "name": "SPC_Subgroup_N",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_Subgroup_N",
+              "readOnly": true
+            },
+            {
+              "name": "SPC_Last_P",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_Last_P",
+              "readOnly": true
+            },
+            {
+              "name": "SPC_P_Bar",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_P_Bar",
+              "readOnly": true
+            },
+            {
+              "name": "SPC_UCL",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_UCL",
+              "readOnly": true
+            },
+            {
+              "name": "SPC_LCL",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_LCL",
+              "readOnly": true
+            },
+            {
+              "name": "SPC_WE_Rule_Status",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_WE_Rule_Status",
+              "readOnly": true
+            },
+            {
+              "name": "Active_Alarms_Count",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Active_Alarms_Count",
+              "readOnly": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Celda_Vision_01",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "UDT_ConveyorAxis",
+          "tagType": "UdtInstance",
+          "typeId": "UDT_ConveyorAxis",
+          "tags": [
+            {
+              "name": "Run_Cmd",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Run_Cmd",
+              "value": true
+            },
+            {
+              "name": "Running_FB",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Running_FB",
+              "value": true
+            },
+            {
+              "name": "Speed_PPM_SP",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Speed_PPM_SP",
+              "value": 30.0
+            },
+            {
+              "name": "Actual_PPM",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Actual_PPM",
+              "value": 30.0
+            },
+            {
+              "name": "Belt_Speed_mm_s",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Belt_Speed_mm_s",
+              "value": 420.0
+            },
+            {
+              "name": "Encoder_mm",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.Encoder_mm",
+              "value": 0.0
+            },
+            {
+              "name": "E_Stop_Active",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.E_Stop_Active",
+              "value": false
+            },
+            {
+              "name": "FIFO_Queue_Depth",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ConveyorAxis.FIFO_Queue_Depth",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "name": "UDT_VisionCamera",
+          "tagType": "UdtInstance",
+          "typeId": "UDT_VisionCamera",
+          "tags": [
+            {
+              "name": "Trigger_Pulse",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Trigger_Pulse",
+              "value": false
+            },
+            {
+              "name": "Trigger_Count",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Trigger_Count",
+              "value": 0
+            },
+            {
+              "name": "Light_Ring_PWM",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Light_Ring_PWM",
+              "value": 92.0
+            },
+            {
+              "name": "Confidence_Threshold",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Confidence_Threshold",
+              "value": 0.72
+            },
+            {
+              "name": "Last_Serial",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Serial",
+              "value": "NONE"
+            },
+            {
+              "name": "Last_Status",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Status",
+              "value": "OK"
+            },
+            {
+              "name": "Last_Defect_Class",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Defect_Class",
+              "value": "OK"
+            },
+            {
+              "name": "Last_Confidence",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Confidence",
+              "value": 0.98
+            },
+            {
+              "name": "Last_Edge_Latency_ms",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Edge_Latency_ms",
+              "value": 14.2
+            },
+            {
+              "name": "Last_Cloud_Latency_ms",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Last_Cloud_Latency_ms",
+              "value": 820.0
+            },
+            {
+              "name": "Cloud_Queue_Pending",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Cloud_Queue_Pending",
+              "value": 0
+            },
+            {
+              "name": "Edge_Model_Version",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Edge_Model_Version",
+              "value": "v1.0.0"
+            },
+            {
+              "name": "Shadow_Model_Version",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Shadow_Model_Version",
+              "value": "v1.1.0-shadow"
+            },
+            {
+              "name": "Shadow_Agreement_Pct",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Shadow_Agreement_Pct",
+              "value": 100.0
+            },
+            {
+              "name": "Drift_PSI_Score",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Drift_PSI_Score",
+              "value": 0.04
+            },
+            {
+              "name": "Lens_Fault_Active",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_VisionCamera.Lens_Fault_Active",
+              "value": false
+            }
+          ]
+        },
+        {
+          "name": "UDT_RejectActuator",
+          "tagType": "UdtInstance",
+          "typeId": "UDT_RejectActuator",
+          "tags": [
+            {
+              "name": "Solenoid_Active",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Solenoid_Active",
+              "value": false
+            },
+            {
+              "name": "Pass_Total",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Pass_Total",
+              "value": 0
+            },
+            {
+              "name": "Reject_Total",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Reject_Total",
+              "value": 0
+            },
+            {
+              "name": "Watchdog_Trips",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Watchdog_Trips",
+              "value": 0
+            },
+            {
+              "name": "Bin_Count",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Bin_Count",
+              "value": 0
+            },
+            {
+              "name": "Bin_Capacity",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Bin_Capacity",
+              "value": 25
+            },
+            {
+              "name": "Bin_Level_Pct",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Bin_Level_Pct",
+              "value": 0.0
+            },
+            {
+              "name": "Clear_Bin_Cmd",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Boolean",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Clear_Bin_Cmd",
+              "value": false
+            },
+            {
+              "name": "Last_PLC_Action",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Last_PLC_Action",
+              "value": "PASS_CONVEYOR"
+            },
+            {
+              "name": "Travel_Window_ms",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_RejectActuator.Travel_Window_ms",
+              "value": 480.0
+            }
+          ]
+        },
+        {
+          "name": "UDT_ProductionBatch",
+          "tagType": "UdtInstance",
+          "typeId": "UDT_ProductionBatch",
+          "tags": [
+            {
+              "name": "Active_Recipe",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Active_Recipe",
+              "value": "CAST_100"
+            },
+            {
+              "name": "Batch_Code",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Batch_Code",
+              "value": "LOT-CAST-2026-01"
+            },
+            {
+              "name": "Supplier_Code",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Supplier_Code",
+              "value": "SUP-MTY-01"
+            },
+            {
+              "name": "Supplier_Name",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Supplier_Name",
+              "value": "Fundiciones del Norte S.A."
+            },
+            {
+              "name": "OEE_Availability",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Availability",
+              "value": 98.5
+            },
+            {
+              "name": "OEE_Performance",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Performance",
+              "value": 94.0
+            },
+            {
+              "name": "OEE_Quality_FPY",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Quality_FPY",
+              "value": 96.0
+            },
+            {
+              "name": "OEE_Global",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.OEE_Global",
+              "value": 88.9
+            },
+            {
+              "name": "SPC_Subgroup_N",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_Subgroup_N",
+              "value": 20
+            },
+            {
+              "name": "SPC_Last_P",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_Last_P",
+              "value": 0.04
+            },
+            {
+              "name": "SPC_P_Bar",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_P_Bar",
+              "value": 0.045
+            },
+            {
+              "name": "SPC_UCL",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_UCL",
+              "value": 0.184
+            },
+            {
+              "name": "SPC_LCL",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Float8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_LCL",
+              "value": 0.0
+            },
+            {
+              "name": "SPC_WE_Rule_Status",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "String",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.SPC_WE_Rule_Status",
+              "value": "IN_CONTROL"
+            },
+            {
+              "name": "Active_Alarms_Count",
+              "tagType": "AtomicTag",
+              "valueSource": "opc",
+              "dataType": "Int8",
+              "opcServer": "VisionSCADA_PLC_OPCUA",
+              "opcItemPath": "ns=2;s=VisionSCADA.UDT_ProductionBatch.Active_Alarms_Count",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
