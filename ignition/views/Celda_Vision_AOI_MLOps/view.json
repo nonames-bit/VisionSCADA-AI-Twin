@@ -4,7 +4,7 @@
     "UDT_ConveyorAxis__Running_FB": true,
     "UDT_ConveyorAxis__Speed_PPM_SP": 30.0,
     "UDT_ConveyorAxis__Actual_PPM": 30.0,
-    "UDT_ConveyorAxis__Belt_Speed_mm_s": 420.0,
+    "UDT_ConveyorAxis__Belt_Speed_mm_s": 540.0,
     "UDT_ConveyorAxis__Encoder_mm": 0.0,
     "UDT_ConveyorAxis__E_Stop_Active": false,
     "UDT_ConveyorAxis__FIFO_Queue_Depth": 0,
@@ -12,7 +12,7 @@
     "UDT_VisionCamera__Trigger_Count": 0,
     "UDT_VisionCamera__Light_Ring_PWM": 92.0,
     "UDT_VisionCamera__Confidence_Threshold": 0.72,
-    "UDT_VisionCamera__Last_Serial": "NONE",
+    "UDT_VisionCamera__Last_Serial": "CAST-01001",
     "UDT_VisionCamera__Last_Status": "OK",
     "UDT_VisionCamera__Last_Defect_Class": "OK",
     "UDT_VisionCamera__Last_Confidence": 0.98,
@@ -21,9 +21,17 @@
     "UDT_VisionCamera__Cloud_Queue_Pending": 0,
     "UDT_VisionCamera__Edge_Model_Version": "v1.0.0",
     "UDT_VisionCamera__Shadow_Model_Version": "v1.1.0-shadow",
+    "UDT_VisionCamera__Shadow_Status": "OK",
+    "UDT_VisionCamera__Shadow_Defect_Class": "OK",
     "UDT_VisionCamera__Shadow_Agreement_Pct": 100.0,
     "UDT_VisionCamera__Drift_PSI_Score": 0.04,
     "UDT_VisionCamera__Lens_Fault_Active": false,
+    "UDT_VisionCamera__Last_Raw_URL": "http://127.0.0.1:8020/storage/raw_images/CAST_100/dataset_OK_00.png",
+    "UDT_VisionCamera__Last_Heatmap_URL": "http://127.0.0.1:8020/storage/raw_images/CAST_100/dataset_OK_00.png",
+    "UDT_VisionCamera__Last_SHA256": "a1b2c3d4e5f60718",
+    "UDT_VisionCamera__Cloud_Audit_State": "COMPLETED",
+    "UDT_VisionCamera__Cloud_Diagnosis": "Auditor\u00eda Cloud Multimodal: Superficie y geometr\u00eda dentro de tolerancia ISO.",
+    "UDT_VisionCamera__Promote_Shadow_Cmd": false,
     "UDT_RejectActuator__Solenoid_Active": false,
     "UDT_RejectActuator__Pass_Total": 0,
     "UDT_RejectActuator__Reject_Total": 0,
@@ -33,547 +41,2188 @@
     "UDT_RejectActuator__Bin_Level_Pct": 0.0,
     "UDT_RejectActuator__Clear_Bin_Cmd": false,
     "UDT_RejectActuator__Last_PLC_Action": "PASS_CONVEYOR",
-    "UDT_RejectActuator__Travel_Window_ms": 480.0,
+    "UDT_RejectActuator__Travel_Window_ms": 1480.0,
     "UDT_ProductionBatch__Active_Recipe": "CAST_100",
+    "UDT_ProductionBatch__Recipe_Index": 0,
     "UDT_ProductionBatch__Batch_Code": "LOT-CAST-2026-01",
     "UDT_ProductionBatch__Supplier_Code": "SUP-MTY-01",
-    "UDT_ProductionBatch__Supplier_Name": "Fundiciones del Norte S.A.",
+    "UDT_ProductionBatch__Supplier_Name": "Fundiciones del Norte S.A. (Monterrey, MX)",
     "UDT_ProductionBatch__OEE_Availability": 98.5,
     "UDT_ProductionBatch__OEE_Performance": 94.0,
     "UDT_ProductionBatch__OEE_Quality_FPY": 96.0,
     "UDT_ProductionBatch__OEE_Global": 88.9,
-    "UDT_ProductionBatch__SPC_Subgroup_N": 20,
+    "UDT_ProductionBatch__SPC_Subgroup_N": 10,
     "UDT_ProductionBatch__SPC_Last_P": 0.04,
-    "UDT_ProductionBatch__SPC_P_Bar": 0.045,
-    "UDT_ProductionBatch__SPC_UCL": 0.184,
+    "UDT_ProductionBatch__SPC_P_Bar": 0.06,
+    "UDT_ProductionBatch__SPC_UCL": 0.285,
     "UDT_ProductionBatch__SPC_LCL": 0.0,
     "UDT_ProductionBatch__SPC_WE_Rule_Status": "IN_CONTROL",
-    "UDT_ProductionBatch__Active_Alarms_Count": 0
+    "UDT_ProductionBatch__Active_Alarms_Count": 0,
+    "UDT_ProductionBatch__Scenario_Bad_Lot": false,
+    "UDT_ProductionBatch__Scenario_Dirty_Lens": false,
+    "UDT_ProductionBatch__Scenario_Cloud_Offline": false,
+    "UDT_ProductionBatch__Copilot_RCA_Summary": "Proceso bajo control estad\u00edstico. Edge decide en ~14 ms dentro de la ventana del pist\u00f3n; Cloud audita en segundo plano.",
+    "UDT_ProductionBatch__Copilot_SQL_Query": "SELECT product_recipe, edge_defect_class, supplier_code, COUNT(*) FROM inspections GROUP BY 1,2,3;"
   },
   "params": {},
   "propConfig": {
     "custom.UDT_ConveyorAxis__Run_Cmd": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Run_Cmd",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/Run_Cmd",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_ConveyorAxis__Running_FB": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Running_FB",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/Running_FB",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ConveyorAxis__Speed_PPM_SP": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Speed_PPM_SP",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/Speed_PPM_SP",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_ConveyorAxis__Actual_PPM": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Actual_PPM",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/Actual_PPM",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ConveyorAxis__Belt_Speed_mm_s": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Belt_Speed_mm_s",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/Belt_Speed_mm_s",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ConveyorAxis__Encoder_mm": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/Encoder_mm",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/Encoder_mm",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ConveyorAxis__E_Stop_Active": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/E_Stop_Active",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/E_Stop_Active",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_ConveyorAxis__FIFO_Queue_Depth": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ConveyorAxis/FIFO_Queue_Depth",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ConveyorAxis/FIFO_Queue_Depth",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Trigger_Pulse": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Trigger_Pulse",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Trigger_Pulse",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Trigger_Count": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Trigger_Count",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Trigger_Count",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Light_Ring_PWM": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Light_Ring_PWM",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Light_Ring_PWM",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_VisionCamera__Confidence_Threshold": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Confidence_Threshold",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Confidence_Threshold",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_VisionCamera__Last_Serial": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Serial",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Serial",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Last_Status": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Status",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Status",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Last_Defect_Class": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Defect_Class",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Defect_Class",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Last_Confidence": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Confidence",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Confidence",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Last_Edge_Latency_ms": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Edge_Latency_ms",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Edge_Latency_ms",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Last_Cloud_Latency_ms": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Last_Cloud_Latency_ms",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Cloud_Latency_ms",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Cloud_Queue_Pending": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Cloud_Queue_Pending",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Cloud_Queue_Pending",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Edge_Model_Version": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Edge_Model_Version",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Edge_Model_Version",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Shadow_Model_Version": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Shadow_Model_Version",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Shadow_Model_Version",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Shadow_Status": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Shadow_Status",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Shadow_Defect_Class": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Shadow_Defect_Class",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Shadow_Agreement_Pct": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Shadow_Agreement_Pct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Shadow_Agreement_Pct",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Drift_PSI_Score": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Drift_PSI_Score",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_PSI_Score",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_VisionCamera__Lens_Fault_Active": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_VisionCamera/Lens_Fault_Active",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Lens_Fault_Active",
           "bidirectional": false
         }
       }
     },
-    "custom.UDT_RejectActuator__Solenoid_Active": {
+    "custom.UDT_VisionCamera__Last_Raw_URL": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Solenoid_Active",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Raw_URL",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_Heatmap_URL": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Heatmap_URL",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Last_SHA256": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_SHA256",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Cloud_Audit_State": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Cloud_Audit_State",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Cloud_Diagnosis": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Cloud_Diagnosis",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Promote_Shadow_Cmd": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Promote_Shadow_Cmd",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_RejectActuator__Solenoid_Active": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Solenoid_Active",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Pass_Total": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Pass_Total",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Pass_Total",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Reject_Total": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Reject_Total",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Reject_Total",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Watchdog_Trips": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Watchdog_Trips",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Watchdog_Trips",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Bin_Count": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Bin_Count",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Bin_Count",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Bin_Capacity": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Bin_Capacity",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Bin_Capacity",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Bin_Level_Pct": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Bin_Level_Pct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Bin_Level_Pct",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Clear_Bin_Cmd": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Clear_Bin_Cmd",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Clear_Bin_Cmd",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_RejectActuator__Last_PLC_Action": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Last_PLC_Action",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Last_PLC_Action",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_RejectActuator__Travel_Window_ms": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_RejectActuator/Travel_Window_ms",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_RejectActuator/Travel_Window_ms",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__Active_Recipe": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Active_Recipe",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Active_Recipe",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Recipe_Index": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Recipe_Index",
           "bidirectional": true
         }
       }
     },
     "custom.UDT_ProductionBatch__Batch_Code": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Batch_Code",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Batch_Code",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__Supplier_Code": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Supplier_Code",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Supplier_Code",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__Supplier_Name": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Supplier_Name",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Supplier_Name",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__OEE_Availability": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Availability",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/OEE_Availability",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__OEE_Performance": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Performance",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/OEE_Performance",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__OEE_Quality_FPY": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Quality_FPY",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/OEE_Quality_FPY",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__OEE_Global": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/OEE_Global",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/OEE_Global",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__SPC_Subgroup_N": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_Subgroup_N",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/SPC_Subgroup_N",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__SPC_Last_P": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_Last_P",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/SPC_Last_P",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__SPC_P_Bar": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_P_Bar",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/SPC_P_Bar",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__SPC_UCL": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_UCL",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/SPC_UCL",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__SPC_LCL": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_LCL",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/SPC_LCL",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__SPC_WE_Rule_Status": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/SPC_WE_Rule_Status",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/SPC_WE_Rule_Status",
           "bidirectional": false
         }
       }
     },
     "custom.UDT_ProductionBatch__Active_Alarms_Count": {
+      "persistent": true,
       "binding": {
         "type": "tag",
         "config": {
           "mode": "direct",
-          "tagPath": "[default]Celda_Vision_01/UDT_ProductionBatch/Active_Alarms_Count",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Active_Alarms_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Scenario_Bad_Lot": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Scenario_Bad_Lot",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Scenario_Dirty_Lens": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Scenario_Dirty_Lens",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Scenario_Cloud_Offline": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Scenario_Cloud_Offline",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Copilot_RCA_Summary": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Copilot_RCA_Summary",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Copilot_SQL_Query": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Copilot_SQL_Query",
           "bidirectional": false
         }
       }
     }
   },
+  "props": {
+    "defaultSize": {
+      "width": 1620,
+      "height": 1020
+    }
+  },
   "root": {
-    "type": "ia.container.flex",
     "meta": {
       "name": "root"
     },
+    "type": "ia.container.flex",
     "props": {
       "direction": "column",
       "style": {
-        "backgroundColor": "#090e17",
-        "width": "100%",
-        "height": "100%"
+        "backgroundColor": "#060A12",
+        "color": "#F8FAFC",
+        "fontFamily": "'Segoe UI', 'Inter', sans-serif",
+        "padding": "8px 12px",
+        "gap": "8px",
+        "overflow": "auto"
       }
     },
     "children": [
       {
-        "type": "ia.display.iframe",
         "meta": {
-          "name": "VisionSCADA_WebDev_Frame"
+          "name": "Header_VisionAOI"
         },
+        "type": "ia.container.flex",
         "position": {
-          "grow": 1,
-          "basis": "100%"
+          "basis": "54px",
+          "shrink": 0
         },
         "props": {
-          "src": "http://127.0.0.1:8020/",
+          "direction": "row",
+          "justify": "space-between",
+          "alignItems": "center",
           "style": {
-            "border": "none",
-            "width": "100%",
-            "height": "100%"
+            "backgroundColor": "#0F172A",
+            "border": "1px solid #1E293B",
+            "borderLeft": "5px solid #0EA5E9",
+            "borderRadius": "8px",
+            "padding": "6px 14px"
           }
-        }
+        },
+        "children": [
+          {
+            "meta": {
+              "name": "Title_Block"
+            },
+            "type": "ia.container.flex",
+            "props": {
+              "direction": "column"
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Main_Title"
+                },
+                "type": "ia.display.label",
+                "props": {
+                  "text": "\ud83d\udc41\ufe0f\u200d\ud83d\udde8\ufe0f CELDA AOI VISI\u00d3N ARTIFICIAL 3D \u00b7 SOFT-PLC OPC-UA (4 UDTs) \u00b7 EDGE ML vs CLOUD ASYNC \u00b7 SPC CARTA p",
+                  "style": {
+                    "fontSize": "14px",
+                    "fontWeight": "800",
+                    "color": "#F8FAFC"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Sub_Title"
+                },
+                "type": "ia.display.label",
+                "props": {
+                  "text": "100% Native Ignition Perspective HMI \u00b7 UNS MQTT Sparkplug B / ISA-95 \u00b7 PostgreSQL (`copilot_ro` Read-Only) \u00b7 Human-in-the-Loop & Shadow Mode",
+                  "style": {
+                    "fontSize": "11px",
+                    "color": "#38BDF8"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Header_Badges"
+            },
+            "type": "ia.container.flex",
+            "props": {
+              "direction": "row",
+              "style": {
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Badge_PLC"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "if({view.custom.UDT_ConveyorAxis__Running_FB}, concat('\u25cf SOFT-PLC RUN (', round({view.custom.UDT_ConveyorAxis__Actual_PPM},0), ' PPM)'), '\u25cf SOFT-PLC STOPPED')"
+                      }
+                    }
+                  },
+                  "props.style.backgroundColor": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "if({view.custom.UDT_ConveyorAxis__Running_FB}, '#047857', '#B91C1C')"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#F8FAFC",
+                    "borderRadius": "6px",
+                    "padding": "5px 10px",
+                    "fontSize": "11px",
+                    "fontWeight": "800",
+                    "fontFamily": "monospace"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Badge_OEE"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat('OEE: ', numberFormat({view.custom.UDT_ProductionBatch__OEE_Global}, '0.0'), '% | FPY: ', numberFormat({view.custom.UDT_ProductionBatch__OEE_Quality_FPY}, '0.0'), '%')"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "backgroundColor": "#1E3A8A",
+                    "color": "#93C5FD",
+                    "border": "1px solid #3B82F6",
+                    "borderRadius": "6px",
+                    "padding": "5px 10px",
+                    "fontSize": "11px",
+                    "fontWeight": "800",
+                    "fontFamily": "monospace"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Badge_Alarm_ISA18"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "if({view.custom.UDT_ProductionBatch__Active_Alarms_Count} > 0 || {view.custom.UDT_ProductionBatch__Scenario_Bad_Lot} || {view.custom.UDT_ProductionBatch__Scenario_Dirty_Lens}, concat('\ud83d\udea8 ISA-18.2 ALARMA ACTIVA (SPC: ', {view.custom.UDT_ProductionBatch__SPC_WE_Rule_Status}, ')'), '\u2705 ISA-18.2 SIN ALARMAS')"
+                      }
+                    }
+                  },
+                  "props.style.backgroundColor": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "if({view.custom.UDT_ProductionBatch__Active_Alarms_Count} > 0 || {view.custom.UDT_ProductionBatch__Scenario_Bad_Lot} || {view.custom.UDT_ProductionBatch__Scenario_Dirty_Lens}, '#B91C1C', '#065F46')"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#F8FAFC",
+                    "borderRadius": "6px",
+                    "padding": "5px 10px",
+                    "fontSize": "11px",
+                    "fontWeight": "800",
+                    "fontFamily": "monospace"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "meta": {
+          "name": "Panel_Controles_PLC_Y_Escenarios"
+        },
+        "type": "ia.container.flex",
+        "position": {
+          "basis": "76px",
+          "shrink": 0
+        },
+        "props": {
+          "direction": "row",
+          "justify": "space-between",
+          "alignItems": "stretch",
+          "style": {
+            "gap": "6px"
+          }
+        },
+        "children": [
+          {
+            "meta": {
+              "name": "Card_Recipe"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "16%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #38BDF8",
+                "borderRadius": "8px",
+                "padding": "4px 8px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Recipe_Lbl"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "case({view.custom.UDT_ProductionBatch__Recipe_Index}, 0, 'Lote 1: CAST_100 (Fundici\u00f3n)', 1, 'Lote 2: PACK_200 (MVTec Vial)', 'Lote 3: PCB_300 (DeepPCB)')"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "fontSize": "10.5px",
+                    "fontWeight": "800",
+                    "color": "#38BDF8"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Recipe_Slider"
+                },
+                "type": "ia.input.slider",
+                "propConfig": {
+                  "props.value": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_ProductionBatch__Recipe_Index"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "min": 0,
+                  "max": 2,
+                  "step": 1,
+                  "color": "#38BDF8"
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Speed"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "13%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #10B981",
+                "borderRadius": "8px",
+                "padding": "4px 8px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Speed_Lbl"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat('Velocidad Banda: ', round({view.custom.UDT_ConveyorAxis__Speed_PPM_SP}, 0), ' PPM')"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "fontSize": "10.5px",
+                    "fontWeight": "800",
+                    "color": "#34D399"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Speed_Slider"
+                },
+                "type": "ia.input.slider",
+                "propConfig": {
+                  "props.value": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_ConveyorAxis__Speed_PPM_SP"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "min": 10,
+                  "max": 55,
+                  "step": 1,
+                  "color": "#10B981"
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Threshold"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "14%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #A855F7",
+                "borderRadius": "8px",
+                "padding": "4px 8px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Threshold_Lbl"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat('Umbral Confianza ML: ', numberFormat({view.custom.UDT_VisionCamera__Confidence_Threshold}, '0.00'))"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "fontSize": "10.5px",
+                    "fontWeight": "800",
+                    "color": "#C084FC"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Threshold_Slider"
+                },
+                "type": "ia.input.slider",
+                "propConfig": {
+                  "props.value": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_VisionCamera__Confidence_Threshold"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "min": 0.5,
+                  "max": 0.92,
+                  "step": 0.02,
+                  "color": "#A855F7"
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Light"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "12%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #F59E0B",
+                "borderRadius": "8px",
+                "padding": "4px 8px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Light_Lbl"
+                },
+                "type": "ia.display.label",
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat('Anillo Luz LED: ', round({view.custom.UDT_VisionCamera__Light_Ring_PWM}, 0), '%')"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "fontSize": "10.5px",
+                    "fontWeight": "800",
+                    "color": "#FBBF24"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Light_Slider"
+                },
+                "type": "ia.input.slider",
+                "propConfig": {
+                  "props.value": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_VisionCamera__Light_Ring_PWM"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "min": 30,
+                  "max": 100,
+                  "step": 2,
+                  "color": "#F59E0B"
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Run"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "9%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "alignItems": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #10B981",
+                "borderRadius": "8px",
+                "padding": "4px 6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Run_Title"
+                },
+                "type": "ia.display.label",
+                "props": {
+                  "text": "MOTOR BANDA",
+                  "style": {
+                    "fontSize": "9.5px",
+                    "fontWeight": "800",
+                    "color": "#10B981"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Run_SW"
+                },
+                "type": "ia.input.toggle-switch",
+                "propConfig": {
+                  "props.selected": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_ConveyorAxis__Run_Cmd"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "label": {
+                    "text": "RUN",
+                    "position": "right"
+                  },
+                  "color": {
+                    "selected": "#10B981",
+                    "unselected": "#334155"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Scen1"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "11%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "alignItems": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #EF4444",
+                "borderRadius": "8px",
+                "padding": "4px 6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Scen1_Title"
+                },
+                "type": "ia.display.label",
+                "props": {
+                  "text": "DEMO 1: LOTE MALO",
+                  "style": {
+                    "fontSize": "9.5px",
+                    "fontWeight": "800",
+                    "color": "#EF4444"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Scen1_SW"
+                },
+                "type": "ia.input.toggle-switch",
+                "propConfig": {
+                  "props.selected": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_ProductionBatch__Scenario_Bad_Lot"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "label": {
+                    "text": "PROV. B",
+                    "position": "right"
+                  },
+                  "color": {
+                    "selected": "#EF4444",
+                    "unselected": "#334155"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Scen2"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "11%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "alignItems": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #F59E0B",
+                "borderRadius": "8px",
+                "padding": "4px 6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Scen2_Title"
+                },
+                "type": "ia.display.label",
+                "props": {
+                  "text": "DEMO 2: LENTE SUCIO",
+                  "style": {
+                    "fontSize": "9.5px",
+                    "fontWeight": "800",
+                    "color": "#F59E0B"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Scen2_SW"
+                },
+                "type": "ia.input.toggle-switch",
+                "propConfig": {
+                  "props.selected": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_ProductionBatch__Scenario_Dirty_Lens"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "label": {
+                    "text": "DRIFT",
+                    "position": "right"
+                  },
+                  "color": {
+                    "selected": "#F59E0B",
+                    "unselected": "#334155"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Card_Scen3"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "11%",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "justify": "center",
+              "alignItems": "center",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #EC4899",
+                "borderRadius": "8px",
+                "padding": "4px 6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Scen3_Title"
+                },
+                "type": "ia.display.label",
+                "props": {
+                  "text": "DEMO 3: CORTE CLOUD",
+                  "style": {
+                    "fontSize": "9.5px",
+                    "fontWeight": "800",
+                    "color": "#EC4899"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Card_Scen3_SW"
+                },
+                "type": "ia.input.toggle-switch",
+                "propConfig": {
+                  "props.selected": {
+                    "binding": {
+                      "type": "property",
+                      "config": {
+                        "bidirectional": true,
+                        "path": "view.custom.UDT_ProductionBatch__Scenario_Cloud_Offline"
+                      }
+                    }
+                  }
+                },
+                "props": {
+                  "label": {
+                    "text": "OFFLINE",
+                    "position": "right"
+                  },
+                  "color": {
+                    "selected": "#EC4899",
+                    "unselected": "#334155"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "meta": {
+          "name": "Body_Main"
+        },
+        "type": "ia.container.flex",
+        "position": {
+          "basis": "840px",
+          "grow": 1
+        },
+        "props": {
+          "direction": "row",
+          "style": {
+            "gap": "8px"
+          }
+        },
+        "children": [
+          {
+            "meta": {
+              "name": "Col_Left_3D_And_SPC"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "920px",
+              "grow": 1
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "gap": "8px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Container_3D_Viewport"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "560px",
+                  "grow": 1
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "2px solid #0EA5E9",
+                    "borderRadius": "10px",
+                    "padding": "4px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "Visor_3D_AOI"
+                    },
+                    "type": "ia.display.iframe",
+                    "position": {
+                      "basis": "100%",
+                      "grow": 1
+                    },
+                    "propConfig": {
+                      "props.src": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('/vision_aoi_cell.html?v=2#recipe=', {view.custom.UDT_ProductionBatch__Active_Recipe}, '&run=', {view.custom.UDT_ConveyorAxis__Running_FB}, '&speed=', {view.custom.UDT_ConveyorAxis__Actual_PPM}, '&light=', {view.custom.UDT_VisionCamera__Light_Ring_PWM}, '&enc=', round({view.custom.UDT_ConveyorAxis__Encoder_mm}, 0), '&serial=', {view.custom.UDT_VisionCamera__Last_Serial}, '&status=', {view.custom.UDT_VisionCamera__Last_Status}, '&defect=', {view.custom.UDT_VisionCamera__Last_Defect_Class}, '&edgems=', {view.custom.UDT_VisionCamera__Last_Edge_Latency_ms}, '&cloudms=', {view.custom.UDT_VisionCamera__Last_Cloud_Latency_ms}, '&solenoid=', {view.custom.UDT_RejectActuator__Solenoid_Active})"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "width": "100%",
+                        "height": "100%",
+                        "border": "none",
+                        "borderRadius": "8px",
+                        "backgroundColor": "#060A12"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Container_Native_SPC_And_Map_SVG"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "240px",
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #334155",
+                    "borderRadius": "10px",
+                    "padding": "4px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "SVG_SPC_And_Global_Map"
+                    },
+                    "type": "ia.display.image",
+                    "position": {
+                      "basis": "100%",
+                      "grow": 1
+                    },
+                    "propConfig": {
+                      "props.source": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 860 220' width='100%' height='100%' style='background:rgb(9,14,26);border-radius:8px;font-family:Segoe UI,sans-serif'><rect x='8' y='8' width='425' height='204' rx='8' fill='rgb(15,23,42)' stroke='\", if({view.custom.UDT_ProductionBatch__SPC_WE_Rule_Status} != \"NONE\" && {view.custom.UDT_ProductionBatch__SPC_WE_Rule_Status} != \"IN_CONTROL\", \"rgb(239,68,68)\", \"rgb(56,189,248)\"), \"' stroke-width='2'/><text x='20' y='28' fill='rgb(56,189,248)' font-size='11' font-weight='bold'>CARTA DE CONTROL SPC (p-CHART) \u00b7 REGLAS WESTERN ELECTRIC</text><text x='420' y='28' text-anchor='end' fill='\", if({view.custom.UDT_ProductionBatch__SPC_WE_Rule_Status} != \"NONE\" && {view.custom.UDT_ProductionBatch__SPC_WE_Rule_Status} != \"IN_CONTROL\", \"rgb(248,113,113)\", \"rgb(52,211,153)\"), \"' font-size='11' font-weight='bold'>\", {view.custom.UDT_ProductionBatch__SPC_WE_Rule_Status}, \"</text><line x1='42' y1='45' x2='42' y2='175' stroke='rgb(71,85,105)' stroke-width='1.5'/><line x1='42' y1='175' x2='415' y2='175' stroke='rgb(71,85,105)' stroke-width='1.5'/><line x1='42' y1='72' x2='415' y2='72' stroke='rgb(239,68,68)' stroke-width='1.5' stroke-dasharray='5,4'/><text x='48' y='67' fill='rgb(248,113,113)' font-size='10'>UCL (3\u03c3) = \", numberFormat({view.custom.UDT_ProductionBatch__SPC_UCL}, '0.000'), \"</text><line x1='42' y1='142' x2='415' y2='142' stroke='rgb(16,185,129)' stroke-width='1.5' stroke-dasharray='4,4'/><text x='48' y='137' fill='rgb(52,211,153)' font-size='10'>p-bar = \", numberFormat({view.custom.UDT_ProductionBatch__SPC_P_Bar}, '0.000'), \"</text><polyline fill='none' stroke='rgb(56,189,248)' stroke-width='2.5' points='60,145 115,138 170,144 225,132 280,140 335,\", max(48, min(172, 172 - ({view.custom.UDT_ProductionBatch__SPC_Last_P} * 210))), \" 395,\", max(48, min(172, 172 - ({view.custom.UDT_ProductionBatch__SPC_Last_P} * 240))), \"'/><circle cx='395' cy='\", max(48, min(172, 172 - ({view.custom.UDT_ProductionBatch__SPC_Last_P} * 240))), \"' r='6' fill='\", if({view.custom.UDT_ProductionBatch__SPC_Last_P} > {view.custom.UDT_ProductionBatch__SPC_UCL}, \"rgb(239,68,68)\", \"rgb(52,211,153)\"), \"' stroke='rgb(255,255,255)' stroke-width='1.5'/><text x='228' y='196' text-anchor='middle' fill='rgb(203,213,225)' font-size='11' font-weight='bold'>Subgrupo actual p = \", numberFormat({view.custom.UDT_ProductionBatch__SPC_Last_P}, '0.000'), \" | Lote: \", {view.custom.UDT_ProductionBatch__Batch_Code}, \"</text><rect x='445' y='8' width='407' height='96' rx='8' fill='rgb(15,23,42)' stroke='rgb(16,185,129)' stroke-width='1.5'/><text x='458' y='27' fill='rgb(52,211,153)' font-size='11' font-weight='bold'>LAZO DETERMINISTA EDGE vs AUDITOR\u00cdA CLOUD (STORE &amp; FORWARD)</text><text x='458' y='48' fill='rgb(226,232,240)' font-size='11'>\u26a1 Edge ML (\", {view.custom.UDT_VisionCamera__Edge_Model_Version}, \"): \", numberFormat({view.custom.UDT_VisionCamera__Last_Edge_Latency_ms}, '0.0'), \" ms (Decide Pist\u00f3n PLC)</text><rect x='458' y='54' width='\", min(360, max(18, {view.custom.UDT_VisionCamera__Last_Edge_Latency_ms} * 1.5)), \"' height='10' rx='4' fill='rgb(16,185,129)'/><text x='458' y='78' fill='rgb(251,191,36)' font-size='11'>\u2601\ufe0f Cloud Async: \", numberFormat({view.custom.UDT_VisionCamera__Last_Cloud_Latency_ms}, '0'), \" ms | Cola S&amp;F: \", {view.custom.UDT_VisionCamera__Cloud_Queue_Pending}, \" pzas</text><rect x='458' y='84' width='\", min(375, max(60, {view.custom.UDT_VisionCamera__Last_Cloud_Latency_ms} * 0.38)), \"' height='10' rx='4' fill='\", if({view.custom.UDT_ProductionBatch__Scenario_Cloud_Offline}, \"rgb(239,68,68)\", \"rgb(245,158,11)\"), \"'/><rect x='445' y='112' width='407' height='100' rx='8' fill='rgb(15,23,42)' stroke='rgb(56,189,248)' stroke-width='1.5'/><text x='458' y='130' fill='rgb(56,189,248)' font-size='11' font-weight='bold'>MAPA GLOBAL DE PROVEEDORES (TRAZABILIDAD GPS &amp; LOTE ACTIVO)</text><rect x='458' y='136' width='380' height='54' rx='4' fill='rgb(7,11,20)' stroke='rgb(30,41,59)'/><circle cx='525' cy='165' r='6' fill='\", if({view.custom.UDT_ProductionBatch__Recipe_Index} = 0 && !{view.custom.UDT_ProductionBatch__Scenario_Bad_Lot}, 'rgb(16,185,129)', 'rgb(71,85,105)'), \"'/><text x='525' y='182' text-anchor='middle' fill='rgb(148,163,184)' font-size='8.5'>MTY (MX)</text><circle cx='565' cy='150' r='6' fill='\", if({view.custom.UDT_ProductionBatch__Recipe_Index} = 1 && !{view.custom.UDT_ProductionBatch__Scenario_Bad_Lot}, 'rgb(16,185,129)', 'rgb(71,85,105)'), \"'/><text x='565' y='142' text-anchor='middle' fill='rgb(148,163,184)' font-size='8.5'>DET (US)</text><circle cx='650' cy='152' r='7' fill='\", if({view.custom.UDT_ProductionBatch__Scenario_Bad_Lot}, 'rgb(239,68,68)', 'rgb(16,185,129)'), \"'/><text x='650' y='182' text-anchor='middle' fill='\", if({view.custom.UDT_ProductionBatch__Scenario_Bad_Lot}, 'rgb(248,113,113)', 'rgb(148,163,184)'), \"' font-size='8.5' font-weight='bold'>STR (DE)</text><circle cx='755' cy='165' r='6' fill='\", if({view.custom.UDT_ProductionBatch__Recipe_Index} = 2, if({view.custom.UDT_ProductionBatch__Scenario_Bad_Lot}, 'rgb(239,68,68)', 'rgb(16,185,129)'), 'rgb(71,85,105)'), \"'/><text x='755' y='182' text-anchor='middle' fill='rgb(148,163,184)' font-size='8.5'>SZX (CN)</text><circle cx='805' cy='154' r='6' fill='rgb(16,185,129)'/><text x='805' y='145' text-anchor='middle' fill='rgb(148,163,184)' font-size='8.5'>OSK (JP)</text><text x='648' y='204' text-anchor='middle' fill='rgb(226,232,240)' font-size='10.5' font-weight='bold'>Proveedor Activo: \", {view.custom.UDT_ProductionBatch__Supplier_Code}, \" \u00b7 \", {view.custom.UDT_ProductionBatch__Supplier_Name}, \"</text></svg>\")"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "fit": {
+                        "mode": "fill"
+                      },
+                      "style": {
+                        "width": "100%",
+                        "height": "100%"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Col_Right_HUD_MLOps_Copilot"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "540px",
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "gap": "8px",
+                "overflow": "auto"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Card_Camera_HUD"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #38BDF8",
+                    "borderRadius": "8px",
+                    "padding": "8px 12px",
+                    "gap": "6px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "Cam_Title"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('\ud83d\udcf8 C\u00c1MARA TELEC\u00c9NTRICA AOI \u00b7 SERIE: ', {view.custom.UDT_VisionCamera__Last_Serial}, ' \u00b7 [', {view.custom.UDT_VisionCamera__Last_Status}, ': ', {view.custom.UDT_VisionCamera__Last_Defect_Class}, ']')"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_VisionCamera__Last_Status} = 'OK', '#34D399', '#F87171')"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "11.5px",
+                        "fontWeight": "800"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Row_Images"
+                    },
+                    "type": "ia.container.flex",
+                    "position": {
+                      "basis": "185px",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "direction": "row",
+                      "style": {
+                        "gap": "8px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "meta": {
+                          "name": "Img_Raw"
+                        },
+                        "type": "ia.display.image",
+                        "position": {
+                          "basis": "50%",
+                          "grow": 1
+                        },
+                        "propConfig": {
+                          "props.source": {
+                            "binding": {
+                              "type": "property",
+                              "config": {
+                                "path": "view.custom.UDT_VisionCamera__Last_Raw_URL"
+                              }
+                            }
+                          }
+                        },
+                        "props": {
+                          "fit": {
+                            "mode": "contain"
+                          },
+                          "style": {
+                            "backgroundColor": "#060A12",
+                            "border": "1px solid #334155",
+                            "borderRadius": "6px"
+                          }
+                        }
+                      },
+                      {
+                        "meta": {
+                          "name": "Img_Heatmap"
+                        },
+                        "type": "ia.display.image",
+                        "position": {
+                          "basis": "50%",
+                          "grow": 1
+                        },
+                        "propConfig": {
+                          "props.source": {
+                            "binding": {
+                              "type": "property",
+                              "config": {
+                                "path": "view.custom.UDT_VisionCamera__Last_Heatmap_URL"
+                              }
+                            }
+                          }
+                        },
+                        "props": {
+                          "fit": {
+                            "mode": "contain"
+                          },
+                          "style": {
+                            "backgroundColor": "#060A12",
+                            "border": "1px solid #38BDF8",
+                            "borderRadius": "6px"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "meta": {
+                      "name": "Cam_Meta_Line1"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('Confianza Edge: ', numberFormat({view.custom.UDT_VisionCamera__Last_Confidence} * 100, '0.0'), '% | Acci\u00f3n Pist\u00f3n PLC: ', {view.custom.UDT_RejectActuator__Last_PLC_Action}, ' | SHA256: ', {view.custom.UDT_VisionCamera__Last_SHA256})"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "11.5px",
+                        "fontFamily": "monospace",
+                        "color": "#E2E8F0"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Cam_Meta_Line2"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('Piezas OK: ', {view.custom.UDT_RejectActuator__Pass_Total}, ' | Rechazos NOK: ', {view.custom.UDT_RejectActuator__Reject_Total}, ' | Contenedor Scrap: ', round({view.custom.UDT_RejectActuator__Bin_Level_Pct}, 0), '%')"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "11.5px",
+                        "fontFamily": "monospace",
+                        "color": "#93C5FD"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Card_MLOps_Shadow"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #A855F7",
+                    "borderRadius": "8px",
+                    "padding": "8px 12px",
+                    "gap": "4px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "MLOps_Title"
+                    },
+                    "type": "ia.display.label",
+                    "props": {
+                      "text": "\ud83e\uddea LABORATORIO MLOps \u00b7 PRODUCCI\u00d3N vs SHADOW MODE \u00b7 DRIFT PSI",
+                      "style": {
+                        "fontSize": "11px",
+                        "fontWeight": "800",
+                        "color": "#C084FC"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Lbl_Prod_Shadow"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('Prod (', {view.custom.UDT_VisionCamera__Edge_Model_Version}, '): ', {view.custom.UDT_VisionCamera__Last_Defect_Class}, ' | Shadow (', {view.custom.UDT_VisionCamera__Shadow_Model_Version}, '): ', {view.custom.UDT_VisionCamera__Shadow_Defect_Class})"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "12px",
+                        "fontFamily": "monospace",
+                        "color": "#E2E8F0"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Lbl_Drift_And_Agreement"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('Acuerdo Prod/Shadow: ', numberFormat({view.custom.UDT_VisionCamera__Shadow_Agreement_Pct}, '0.0'), '% | Drift PSI: ', numberFormat({view.custom.UDT_VisionCamera__Drift_PSI_Score}, '0.000'), if({view.custom.UDT_VisionCamera__Drift_PSI_Score} > 0.18, ' \u26a0\ufe0f DRIFT ALTO', ' (Estable)'))"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "12px",
+                        "fontFamily": "monospace",
+                        "color": "#FBBF24"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Lbl_Cloud_Diag"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('\u2601\ufe0f [', {view.custom.UDT_VisionCamera__Cloud_Audit_State}, '] ', {view.custom.UDT_VisionCamera__Cloud_Diagnosis})"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "11px",
+                        "color": "#94A3B8"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Row_MLOps_Actions"
+                    },
+                    "type": "ia.container.flex",
+                    "props": {
+                      "direction": "row",
+                      "justify": "space-between",
+                      "alignItems": "center",
+                      "style": {
+                        "gap": "8px",
+                        "marginTop": "4px"
+                      }
+                    },
+                    "children": [
+                      {
+                        "meta": {
+                          "name": "SW_Promote_Shadow"
+                        },
+                        "type": "ia.container.flex",
+                        "position": {
+                          "basis": "48%",
+                          "grow": 1
+                        },
+                        "props": {
+                          "direction": "column",
+                          "justify": "center",
+                          "alignItems": "center",
+                          "style": {
+                            "backgroundColor": "#0F172A",
+                            "border": "1px solid #A855F7",
+                            "borderRadius": "8px",
+                            "padding": "4px 6px"
+                          }
+                        },
+                        "children": [
+                          {
+                            "meta": {
+                              "name": "SW_Promote_Shadow_Title"
+                            },
+                            "type": "ia.display.label",
+                            "props": {
+                              "text": "PROMOVER SHADOW A PROD (RBAC)",
+                              "style": {
+                                "fontSize": "9.5px",
+                                "fontWeight": "800",
+                                "color": "#A855F7"
+                              }
+                            }
+                          },
+                          {
+                            "meta": {
+                              "name": "SW_Promote_Shadow_SW"
+                            },
+                            "type": "ia.input.toggle-switch",
+                            "propConfig": {
+                              "props.selected": {
+                                "binding": {
+                                  "type": "property",
+                                  "config": {
+                                    "bidirectional": true,
+                                    "path": "view.custom.UDT_VisionCamera__Promote_Shadow_Cmd"
+                                  }
+                                }
+                              }
+                            },
+                            "props": {
+                              "label": {
+                                "text": "PROMOVER",
+                                "position": "right"
+                              },
+                              "color": {
+                                "selected": "#A855F7",
+                                "unselected": "#334155"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "meta": {
+                          "name": "SW_Clear_Bin"
+                        },
+                        "type": "ia.container.flex",
+                        "position": {
+                          "basis": "48%",
+                          "grow": 1
+                        },
+                        "props": {
+                          "direction": "column",
+                          "justify": "center",
+                          "alignItems": "center",
+                          "style": {
+                            "backgroundColor": "#0F172A",
+                            "border": "1px solid #10B981",
+                            "borderRadius": "8px",
+                            "padding": "4px 6px"
+                          }
+                        },
+                        "children": [
+                          {
+                            "meta": {
+                              "name": "SW_Clear_Bin_Title"
+                            },
+                            "type": "ia.display.label",
+                            "props": {
+                              "text": "VACIAR CAJ\u00d3N SCRAP NOK",
+                              "style": {
+                                "fontSize": "9.5px",
+                                "fontWeight": "800",
+                                "color": "#10B981"
+                              }
+                            }
+                          },
+                          {
+                            "meta": {
+                              "name": "SW_Clear_Bin_SW"
+                            },
+                            "type": "ia.input.toggle-switch",
+                            "propConfig": {
+                              "props.selected": {
+                                "binding": {
+                                  "type": "property",
+                                  "config": {
+                                    "bidirectional": true,
+                                    "path": "view.custom.UDT_RejectActuator__Clear_Bin_Cmd"
+                                  }
+                                }
+                              }
+                            },
+                            "props": {
+                              "label": {
+                                "text": "VACIAR",
+                                "position": "right"
+                              },
+                              "color": {
+                                "selected": "#10B981",
+                                "unselected": "#334155"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Card_Copilot_Guardrails"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #10B981",
+                    "borderRadius": "8px",
+                    "padding": "8px 12px",
+                    "gap": "4px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "Copilot_Title"
+                    },
+                    "type": "ia.display.label",
+                    "props": {
+                      "text": "\ud83e\udd16 COPILOTO IA DE CALIDAD \u00b7 GUARDRAIL SQL READ-ONLY (`copilot_ro`)",
+                      "style": {
+                        "fontSize": "11px",
+                        "fontWeight": "800",
+                        "color": "#34D399"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Lbl_Copilot_RCA"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "property",
+                          "config": {
+                            "path": "view.custom.UDT_ProductionBatch__Copilot_RCA_Summary"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "11.5px",
+                        "color": "#F8FAFC"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Lbl_Copilot_SQL"
+                    },
+                    "type": "ia.display.label",
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('Cita SQL (SELECT-only): ', {view.custom.UDT_ProductionBatch__Copilot_SQL_Query})"
+                          }
+                        }
+                      }
+                    },
+                    "props": {
+                      "style": {
+                        "fontSize": "10.5px",
+                        "fontFamily": "monospace",
+                        "color": "#93C5FD"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     ]
   }

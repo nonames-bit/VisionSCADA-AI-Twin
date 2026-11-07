@@ -1,34 +1,44 @@
 """
 Deterministic Soft-PLC Engine (IEC 61131-3 State Machine + FIFO Belt Tracking)
 and Industrial OPC-UA Server exposing 4 UDT structures for Ignition SCADA 8.3:
-  - UDT_VisionCamera
   - UDT_ConveyorAxis
+  - UDT_VisionCamera
   - UDT_RejectActuator
   - UDT_ProductionBatch
+
+Listens on `opc.tcp://0.0.0.0:48410/brewscada/server/` (namespace `http://brewscada.industrial.game`)
+so Ignition's `BrewSCADA_OPCUA` connection links immediately with Good quality.
 """
 import os
 import time
 import math
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Tuple
 
 from asyncua import Server, ua
 
 logger = logging.getLogger("SoftPLC_OPCUA")
 
-OPCUA_PORT = int(os.getenv("OPCUA_PORT", "48420"))
-OPCUA_ENDPOINT = os.getenv("OPCUA_ENDPOINT", f"opc.tcp://0.0.0.0:{OPCUA_PORT}/visionscada/plc/")
+OPCUA_PORT = int(os.getenv("OPCUA_PORT", "48410"))
+OPCUA_ENDPOINT = os.getenv("OPCUA_ENDPOINT", f"opc.tcp://0.0.0.0:{OPCUA_PORT}/brewscada/server/")
+RECIPE_BY_IDX = {0: "CAST_100", 1: "PACK_200", 2: "PCB_300"}
+IDX_BY_RECIPE = {"CAST_100": 0, "PACK_200": 1, "PCB_300": 2}
 
-# Writable Operator / Engineer Setpoints (RBAC enforced in API & SCADA)
+# Writable Operator / Engineer Setpoints (Bidirectional in Ignition Perspective)
 PLC_WRITABLE_TAGS = {
     ("UDT_ConveyorAxis", "Run_Cmd"): bool,
     ("UDT_ConveyorAxis", "Speed_PPM_SP"): float,
     ("UDT_ConveyorAxis", "E_Stop_Active"): bool,
     ("UDT_VisionCamera", "Light_Ring_PWM"): float,
     ("UDT_VisionCamera", "Confidence_Threshold"): float,
+    ("UDT_VisionCamera", "Promote_Shadow_Cmd"): bool,
     ("UDT_RejectActuator", "Clear_Bin_Cmd"): bool,
     ("UDT_ProductionBatch", "Active_Recipe"): str,
+    ("UDT_ProductionBatch", "Recipe_Index"): int,
+    ("UDT_ProductionBatch", "Scenario_Bad_Lot"): bool,
+    ("UDT_ProductionBatch", "Scenario_Dirty_Lens"): bool,
+    ("UDT_ProductionBatch", "Scenario_Cloud_Offline"): bool,
 }
 
 
@@ -56,6 +66,7 @@ class SoftPLCController:
         self.scenario_bad_supplier_lot = False
         self.scenario_dirty_lens_drift = False
         self.scenario_cloud_outage = False
+        self.pending_promote_shadow = False
 
         # 4 Structured UDT Tag Trees
         self.udts: Dict[str, Dict[str, Any]] = {
@@ -64,7 +75,7 @@ class SoftPLCController:
                 "Running_FB": True,
                 "Speed_PPM_SP": 30.0,
                 "Actual_PPM": 30.0,
-                "Belt_Speed_mm_s": 420.0,
+                "Belt_Speed_mm_s": 540.0,
                 "Encoder_mm": 0.0,
                 "E_Stop_Active": False,
                 "FIFO_Queue_Depth": 0,
@@ -74,7 +85,7 @@ class SoftPLCController:
                 "Trigger_Count": 0,
                 "Light_Ring_PWM": 92.0,
                 "Confidence_Threshold": 0.72,
-                "Last_Serial": "NONE",
+                "Last_Serial": "CAST-01001",
                 "Last_Status": "OK",
                 "Last_Defect_Class": "OK",
                 "Last_Confidence": 0.98,
@@ -83,9 +94,17 @@ class SoftPLCController:
                 "Cloud_Queue_Pending": 0,
                 "Edge_Model_Version": "v1.0.0",
                 "Shadow_Model_Version": "v1.1.0-shadow",
+                "Shadow_Status": "OK",
+                "Shadow_Defect_Class": "OK",
                 "Shadow_Agreement_Pct": 100.0,
                 "Drift_PSI_Score": 0.04,
                 "Lens_Fault_Active": False,
+                "Last_Raw_URL": "http://127.0.0.1:8020/storage/raw_images/CAST_100/dataset_OK_00.png",
+                "Last_Heatmap_URL": "http://127.0.0.1:8020/storage/raw_images/CAST_100/dataset_OK_00.png",
+                "Last_SHA256": "a1b2c3d4e5f60718",
+                "Cloud_Audit_State": "COMPLETED",
+                "Cloud_Diagnosis": "Auditoría Cloud Multimodal: Superficie y geometría dentro de tolerancia ISO.",
+                "Promote_Shadow_Cmd": False,
             },
             "UDT_RejectActuator": {
                 "Solenoid_Active": False,
@@ -97,24 +116,30 @@ class SoftPLCController:
                 "Bin_Level_Pct": 0.0,
                 "Clear_Bin_Cmd": False,
                 "Last_PLC_Action": "PASS_CONVEYOR",
-                "Travel_Window_ms": 480.0,
+                "Travel_Window_ms": 1480.0,
             },
             "UDT_ProductionBatch": {
                 "Active_Recipe": "CAST_100",
+                "Recipe_Index": 0,
                 "Batch_Code": "LOT-CAST-2026-01",
                 "Supplier_Code": "SUP-MTY-01",
-                "Supplier_Name": "Fundiciones del Norte S.A.",
+                "Supplier_Name": "Fundiciones del Norte S.A. (Monterrey, MX)",
                 "OEE_Availability": 98.5,
                 "OEE_Performance": 94.0,
                 "OEE_Quality_FPY": 96.0,
                 "OEE_Global": 88.9,
-                "SPC_Subgroup_N": 20,
+                "SPC_Subgroup_N": 10,
                 "SPC_Last_P": 0.04,
-                "SPC_P_Bar": 0.045,
-                "SPC_UCL": 0.184,
+                "SPC_P_Bar": 0.06,
+                "SPC_UCL": 0.285,
                 "SPC_LCL": 0.0,
                 "SPC_WE_Rule_Status": "IN_CONTROL",
                 "Active_Alarms_Count": 0,
+                "Scenario_Bad_Lot": False,
+                "Scenario_Dirty_Lens": False,
+                "Scenario_Cloud_Offline": False,
+                "Copilot_RCA_Summary": "Proceso bajo control estadístico. Edge decide en ~14 ms dentro de la ventana del pistón; Cloud audita en segundo plano.",
+                "Copilot_SQL_Query": "SELECT product_recipe, edge_defect_class, supplier_code, COUNT(*) FROM inspections GROUP BY 1,2,3;",
             },
         }
 
@@ -126,6 +151,8 @@ class SoftPLCController:
         try:
             if target_type is bool:
                 cast_val = bool(value) if not isinstance(value, str) else value.lower() in ("1", "true", "yes", "on")
+            elif target_type is int:
+                cast_val = int(round(float(value)))
             elif target_type is float:
                 cast_val = float(value)
                 if math.isnan(cast_val) or math.isinf(cast_val):
@@ -141,7 +168,27 @@ class SoftPLCController:
             self._switch_recipe_context(cast_val)
             return {"ok": True, "udt": udt_name, "tag": tag_name, "value": cast_val}
 
+        if udt_name == "UDT_ProductionBatch" and tag_name == "Recipe_Index":
+            cast_val = max(0, min(2, cast_val))
+            recipe_code = RECIPE_BY_IDX[cast_val]
+            self._switch_recipe_context(recipe_code)
+            return {"ok": True, "udt": udt_name, "tag": tag_name, "value": cast_val}
+
         self.udts[udt_name][tag_name] = cast_val
+
+        # Handle Scenario Switches written directly from Ignition Perspective
+        if udt_name == "UDT_ProductionBatch" and tag_name == "Scenario_Bad_Lot":
+            self.scenario_bad_supplier_lot = cast_val
+        elif udt_name == "UDT_ProductionBatch" and tag_name == "Scenario_Dirty_Lens":
+            self.scenario_dirty_lens_drift = cast_val
+            self.udts["UDT_VisionCamera"]["Light_Ring_PWM"] = 54.0 if cast_val else 92.0
+        elif udt_name == "UDT_ProductionBatch" and tag_name == "Scenario_Cloud_Offline":
+            self.scenario_cloud_outage = cast_val
+
+        if udt_name == "UDT_VisionCamera" and tag_name == "Promote_Shadow_Cmd" and cast_val:
+            self.pending_promote_shadow = True
+            self.udts["UDT_VisionCamera"]["Promote_Shadow_Cmd"] = False
+
         if udt_name == "UDT_RejectActuator" and tag_name == "Clear_Bin_Cmd" and cast_val:
             self.udts["UDT_RejectActuator"]["Bin_Count"] = 0
             self.udts["UDT_RejectActuator"]["Bin_Level_Pct"] = 0.0
@@ -151,18 +198,19 @@ class SoftPLCController:
 
     def _switch_recipe_context(self, recipe: str):
         self.udts["UDT_ProductionBatch"]["Active_Recipe"] = recipe
+        self.udts["UDT_ProductionBatch"]["Recipe_Index"] = IDX_BY_RECIPE.get(recipe, 0)
         if recipe == "CAST_100":
             self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-CAST-2026-01"
             self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-MTY-01"
-            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Fundiciones del Norte S.A."
+            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Fundiciones del Norte S.A. (Monterrey, MX)"
         elif recipe == "PACK_200":
             self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-PACK-2026-02"
             self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-DET-03"
-            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Great Lakes Glass & Pharma"
+            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Great Lakes Glass & Pharma (Detroit, US)"
         else:
             self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-PCB-2026-03"
             self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-SZX-05"
-            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Shenzhen MicroCircuits SMT"
+            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Shenzhen MicroCircuits SMT (Shenzhen, CN)"
 
     def step_scan(self, on_camera_trigger_cb: Optional[Callable[[], Dict[str, Any]]] = None) -> Optional[Dict[str, Any]]:
         """Executes one PLC scan cycle, advancing belt encoder, FIFO tracking, and OEE."""
@@ -177,6 +225,11 @@ class SoftPLCController:
         rej = self.udts["UDT_RejectActuator"]
         batch = self.udts["UDT_ProductionBatch"]
 
+        # Sync scenario booleans to UDT tags
+        batch["Scenario_Bad_Lot"] = self.scenario_bad_supplier_lot
+        batch["Scenario_Dirty_Lens"] = self.scenario_dirty_lens_drift
+        batch["Scenario_Cloud_Offline"] = self.scenario_cloud_outage
+
         # 1. Interlocks & Run State
         bin_full = rej["Bin_Count"] >= rej["Bin_Capacity"]
         running = bool(conv["Run_Cmd"]) and not bool(conv["E_Stop_Active"]) and not bin_full
@@ -186,17 +239,15 @@ class SoftPLCController:
             self.run_time_sec += dt
             sp_ppm = max(5.0, min(60.0, float(conv["Speed_PPM_SP"])))
             conv["Actual_PPM"] = round(sp_ppm, 1)
-            belt_mm_s = sp_ppm * 18.0  # 18 mm/s per PPM
+            belt_mm_s = sp_ppm * 18.0
             conv["Belt_Speed_mm_s"] = round(belt_mm_s, 1)
             conv["Encoder_mm"] = round((conv["Encoder_mm"] + belt_mm_s * dt) % 100000.0, 1)
-            # Distance between Camera (300mm) and Reject Pusher (1100mm) = 800mm
             travel_ms = round((800.0 / max(belt_mm_s, 1.0)) * 1000.0, 1)
             rej["Travel_Window_ms"] = travel_ms
         else:
             conv["Actual_PPM"] = 0.0
             conv["Belt_Speed_mm_s"] = 0.0
 
-        # Turn off pneumatic reject solenoid after pulse duration
         if rej["Solenoid_Active"] and now >= self.piston_off_at:
             rej["Solenoid_Active"] = False
 
@@ -205,12 +256,11 @@ class SoftPLCController:
         for item in self.fifo_queue:
             if running:
                 item["pos_mm"] = round(item["pos_mm"] + conv["Belt_Speed_mm_s"] * dt, 1)
-            # Check Reject Station at x >= 1100 mm
             if not item.get("actuated") and item["pos_mm"] >= 1100.0:
                 item["actuated"] = True
                 if item["plc_action"] in ("REJECT_PNEUMATIC", "REJECT_WATCHDOG"):
                     rej["Solenoid_Active"] = True
-                    self.piston_off_at = now + 0.28
+                    self.piston_off_at = now + 0.35
                     rej["Reject_Total"] += 1
                     rej["Bin_Count"] = min(rej["Bin_Capacity"], rej["Bin_Count"] + 1)
                     rej["Bin_Level_Pct"] = round((rej["Bin_Count"] / rej["Bin_Capacity"]) * 100.0, 1)
@@ -228,8 +278,7 @@ class SoftPLCController:
         triggered_inspection = None
         if running and on_camera_trigger_cb is not None:
             interval_sec = 60.0 / max(5.0, conv["Actual_PPM"])
-            # Keep demo pace responsive (every ~2.2 to 4.0 sec depending on Speed_PPM_SP)
-            effective_interval = max(1.6, min(4.5, interval_sec))
+            effective_interval = max(1.6, min(4.2, interval_sec))
             if (now - self.last_spawn_ts) >= effective_interval:
                 self.last_spawn_ts = now
                 cam["Trigger_Pulse"] = True
@@ -240,7 +289,7 @@ class SoftPLCController:
 
         # 4. Compute Real-Time OEE
         avail = min(100.0, (self.run_time_sec / max(1.0, self.planned_time_sec)) * 100.0)
-        nominal_ppm = 45.0
+        nominal_ppm = 40.0
         perf = min(100.0, (conv["Actual_PPM"] / nominal_ppm) * 100.0) if running else 85.0
         total_parts = rej["Pass_Total"] + rej["Reject_Total"]
         qual = (rej["Pass_Total"] / total_parts * 100.0) if total_parts > 0 else 96.5
@@ -255,12 +304,16 @@ class SoftPLCController:
 
 
 class SoftPLCOPCUAServer:
-    """Exposes the Soft-PLC UDT tags over OPC-UA (`opc.tcp://0.0.0.0:48420/visionscada/plc/`)."""
+    """
+    Exposes the Soft-PLC UDT tags over OPC-UA (`opc.tcp://0.0.0.0:48410/brewscada/server/`)
+    using deterministic NodeIds `ns=2;s=BrewSCADA.<UDT>.<Tag>` so `twin-ignition` connects automatically.
+    """
 
     def __init__(self, plc: SoftPLCController):
         self.plc = plc
         self.server: Optional[Server] = None
         self.nodes: Dict[Tuple[str, str], Any] = {}
+        self.last_published: Dict[Tuple[str, str], Any] = {}
 
     async def start(self):
         self.server = Server()
@@ -269,19 +322,20 @@ class SoftPLCOPCUAServer:
         self.server.set_server_name("VisionSCADA Soft-PLC & Edge AOI OPC-UA Server")
         self.server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
 
-        idx = await self.server.register_namespace("http://visionscada.industrial.ai/plc")
+        idx = await self.server.register_namespace("http://brewscada.industrial.game")
         objects = self.server.nodes.objects
-        root_folder = await objects.add_folder(idx, "VisionSCADA_PLC")
+        root_folder = await objects.add_folder(ua.NodeId("BrewSCADA", idx), "BrewSCADA")
 
         for udt_name, tags in self.plc.udts.items():
-            udt_folder = await root_folder.add_folder(idx, udt_name)
+            udt_folder = await root_folder.add_folder(ua.NodeId(f"BrewSCADA.{udt_name}", idx), udt_name)
             for tag_name, val in tags.items():
-                node_id = ua.NodeId(f"VisionSCADA.{udt_name}.{tag_name}", idx)
+                node_id = ua.NodeId(f"BrewSCADA.{udt_name}.{tag_name}", idx)
                 vtype = self._infer_variant_type(val)
-                node = await udt_folder.add_variable(node_id, tag_name, ua.Variant(val, vtype))
+                node = await udt_folder.add_variable(node_id, tag_name, val, vtype)
                 if (udt_name, tag_name) in PLC_WRITABLE_TAGS:
                     await node.set_writable()
                 self.nodes[(udt_name, tag_name)] = (node, vtype)
+                self.last_published[(udt_name, tag_name)] = val
 
         await self.server.start()
         logger.info("Soft-PLC OPC-UA Server listening on %s", OPCUA_ENDPOINT)
@@ -297,17 +351,17 @@ class SoftPLCOPCUAServer:
         return ua.VariantType.String
 
     async def sync_cycle(self):
-        """Syncs writable OPC-UA client writes into Soft-PLC and publishes updated PLC UDT states."""
+        """Syncs writable OPC-UA client writes from Ignition into Soft-PLC and publishes updated PLC UDT states."""
         if not self.server:
             return
         for (udt_name, tag_name), (node, vtype) in self.nodes.items():
             try:
                 if (udt_name, tag_name) in PLC_WRITABLE_TAGS:
                     remote_val = await node.read_value()
-                    cur_val = self.plc.udts[udt_name][tag_name]
-                    if remote_val != cur_val:
+                    last_pub = self.last_published.get((udt_name, tag_name))
+                    if remote_val != last_pub:
                         self.plc.write_udt_tag(udt_name, tag_name, remote_val)
-                # Write current PLC value to OPC-UA node
+
                 current = self.plc.udts[udt_name][tag_name]
                 if vtype == ua.VariantType.Double:
                     current = float(current)
@@ -318,6 +372,7 @@ class SoftPLCOPCUAServer:
                 else:
                     current = str(current)
                 await node.write_value(ua.Variant(current, vtype))
+                self.last_published[(udt_name, tag_name)] = current
             except Exception as e:
                 logger.debug("OPC-UA sync error on %s.%s: %s", udt_name, tag_name, e)
 

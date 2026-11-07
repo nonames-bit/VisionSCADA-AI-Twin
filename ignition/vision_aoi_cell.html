@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>VisionSCADA 3D AOI Cell — Native Ignition Perspective WebGL Engine</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #060a12; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+    #canvas3d { width: 100vw; height: 100vh; display: block; }
+    .hud-top {
+      position: absolute; top: 8px; left: 8px; right: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      pointer-events: none; gap: 8px; flex-wrap: wrap;
+    }
+    .hud-card {
+      background: rgba(15, 23, 42, 0.90);
+      border: 1px solid rgba(56, 189, 248, 0.40);
+      border-radius: 8px; padding: 6px 11px;
+      font-size: 11.5px; backdrop-filter: blur(6px);
+    }
+    .hud-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-weight: 800; font-size: 10.5px; margin-left: 6px;
+    }
+    .ok { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
+    .nok { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <canvas id="canvas3d"></canvas>
+  <div class="hud-top">
+    <div class="hud-card">
+      <strong>CELDA 3D AOI · SOFT-PLC FIFO TRACKING (x=300mm → Pistón x=1100mm)</strong>
+      <span id="hudRecipe" class="hud-badge ok">CAST_100</span>
+      <div style="margin-top:3px; color:#94a3b8;">
+        Encoder: <span id="hudEncoder" style="color:#38bdf8; font-family:monospace;">0</span> mm ·
+        Velocidad: <span id="hudSpeed" style="color:#38bdf8; font-weight:700;">30</span> PPM ·
+        Luz LED: <span id="hudLight" style="color:#fbbf24; font-weight:700;">92</span>%
+      </div>
+    </div>
+    <div class="hud-card">
+      <div>
+        ⚡ <strong>Edge Decision:</strong> <span id="hudEdgeMs" style="color:#34d399; font-weight:800;">14.2 ms</span>
+        vs ☁️ <strong>Cloud Async:</strong> <span id="hudCloudMs" style="color:#fbbf24; font-weight:800;">840 ms</span>
+      </div>
+      <div style="margin-top:3px;">
+        Pieza: <span id="hudSerial" style="color:#e2e8f0; font-family:monospace; font-weight:700;">CAST-01001</span>
+        <span id="hudStatus" class="hud-badge ok">OK</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x060a12);
+    scene.fog = new THREE.FogExp2(0x060a12, 0.042);
+
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0.4, 4.2, 6.4);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0.1, 0.95, 0);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xdbeafe, 0.72));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
+    dirLight.position.set(5, 9, 6);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const flashLight = new THREE.PointLight(0x38bdf8, 0.3, 4.5);
+    flashLight.position.set(-1.6, 2.05, 0);
+    scene.add(flashLight);
+
+    // Industrial Floor & Grid
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(24, 16),
+      new THREE.MeshStandardMaterial({ color: 0x0b1324, roughness: 0.45, metalness: 0.2 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const grid = new THREE.GridHelper(20, 20, 0x1e293b, 0x1e293b);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    // Conveyor Frame
+    const convGroup = new THREE.Group();
+    scene.add(convGroup);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.3 });
+    const beltMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.15, roughness: 0.85 });
+
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.22, 1.25), frameMat);
+    bed.position.set(0, 0.85, 0);
+    convGroup.add(bed);
+
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.06, 1.05), beltMat);
+    belt.position.set(0, 0.99, 0);
+    convGroup.add(belt);
+
+    const stripes = [];
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0x475569 });
+    for (let i = 0; i < 14; i++) {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.065, 1.02), stripeMat);
+      s.position.set(-3.25 + i * 0.5, 0.995, 0);
+      convGroup.add(s);
+      stripes.push(s);
+    }
+
+    [-3.1, -1.0, 1.0, 3.1].forEach(x => {
+      [-0.52, 0.52].forEach(z => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.85, 16), frameMat);
+        leg.position.set(x, 0.425, z);
+        convGroup.add(leg);
+      });
+    });
+
+    // Cleanroom White AOI Vision Tunnel Gantry at x = -1.6 (300mm)
+    const gantryGroup = new THREE.Group();
+    gantryGroup.position.set(-1.6, 0, 0);
+    scene.add(gantryGroup);
+
+    const hood = new THREE.Mesh(
+      new THREE.BoxGeometry(1.18, 1.28, 1.48),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.25, roughness: 0.2 })
+    );
+    hood.position.set(0, 1.68, 0);
+    gantryGroup.add(hood);
+
+    const camBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.16, 0.48, 24),
+      new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.65, roughness: 0.2 })
+    );
+    camBody.position.set(0, 2.1, 0);
+    gantryGroup.add(camBody);
+
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const ledRing = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 12, 32), ringMat);
+    ledRing.rotation.x = Math.PI / 2;
+    ledRing.position.set(0, 1.78, 0);
+    gantryGroup.add(ledRing);
+
+    const laserBeam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.012, 0.012, 1.15, 8),
+      new THREE.MeshBasicMaterial({ color: 0xef4444 })
+    );
+    laserBeam.rotation.x = Math.PI / 2;
+    laserBeam.position.set(-0.48, 1.12, 0);
+    gantryGroup.add(laserBeam);
+
+    // Pneumatic High-Speed Reject Pusher at x = +1.85 (1100mm)
+    const pusherGroup = new THREE.Group();
+    pusherGroup.position.set(1.85, 1.18, -0.82);
+    scene.add(pusherGroup);
+
+    pusherGroup.add(new THREE.Mesh(
+      new THREE.BoxGeometry(0.38, 0.28, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8, roughness: 0.2 })
+    ));
+
+    const pistonRod = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.75, 16),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+    );
+    pistonRod.rotation.x = Math.PI / 2;
+    pistonRod.position.set(0, 0, 0.35);
+    pusherGroup.add(pistonRod);
+
+    const pusherPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.22, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.4, roughness: 0.3 })
+    );
+    pusherPlate.position.set(0, 0, 0.72);
+    pusherGroup.add(pusherPlate);
+
+    // Red Scrap Bin & Green OK Bin
+    const scrapBin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 0.75, 0.85),
+      new THREE.MeshStandardMaterial({ color: 0x991b1b, metalness: 0.3, roughness: 0.5 })
+    );
+    scrapBin.position.set(1.85, 0.42, 1.05);
+    scene.add(scrapBin);
+
+    const okBin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.75, 1.15),
+      new THREE.MeshStandardMaterial({ color: 0x065f46, metalness: 0.3, roughness: 0.5 })
+    );
+    okBin.position.set(3.85, 0.42, 0);
+    scene.add(okBin);
+
+    // State driven by Ignition Perspective URL Hash OR /api/state fallback
+    const params = {
+      recipe: 'CAST_100',
+      run: true,
+      speed: 30,
+      light: 92,
+      enc: 0,
+      serial: 'CAST-01001',
+      status: 'OK',
+      defect: 'OK',
+      edgems: 14.2,
+      cloudms: 820,
+      solenoid: false
+    };
+
+    let lastSerial = '';
+    let flashIntensity = 0.3;
+    const simulatedParts = [];
+
+    function buildPartMesh(recipe, status) {
+      const group = new THREE.Group();
+      if (recipe === 'CAST_100') {
+        const outer = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28, 0.28, 0.11, 28),
+          new THREE.MeshStandardMaterial({ color: status === 'NOK' ? 0xdc2626 : 0x94a3b8, metalness: 0.85, roughness: 0.3 })
+        );
+        outer.position.y = 0.06;
+        group.add(outer);
+        const hub = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11, 0.11, 0.16, 20),
+          new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.2 })
+        );
+        hub.position.y = 0.08;
+        group.add(hub);
+      } else if (recipe === 'PACK_200') {
+        const vial = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.16, 0.16, 0.38, 24),
+          new THREE.MeshStandardMaterial({ color: status === 'NOK' ? 0xef4444 : 0x38bdf8, transparent: true, opacity: 0.80, roughness: 0.15 })
+        );
+        vial.position.y = 0.19;
+        group.add(vial);
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11, 0.11, 0.08, 20),
+          new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.25 })
+        );
+        cap.position.y = 0.41;
+        group.add(cap);
+      } else {
+        const pcb = new THREE.Mesh(
+          new THREE.BoxGeometry(0.46, 0.04, 0.42),
+          new THREE.MeshStandardMaterial({ color: status === 'NOK' ? 0xb91c1c : 0x15803d, metalness: 0.3, roughness: 0.4 })
+        );
+        pcb.position.y = 0.03;
+        group.add(pcb);
+        const chip = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.05, 0.16),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.3 })
+        );
+        chip.position.y = 0.06;
+        group.add(chip);
+      }
+      return group;
+    }
+
+    function spawnPart(recipe, status) {
+      const mesh = buildPartMesh(recipe, status);
+      mesh.position.set(-3.1, 1.03, 0);
+      scene.add(mesh);
+      simulatedParts.push({ mesh, status, rejected: false });
+      flashIntensity = 3.2;
+    }
+
+    function parseHashFromIgnition() {
+      const h = window.location.hash.replace(/^#/, '');
+      if (!h) return;
+      const sp = new URLSearchParams(h);
+      if (sp.has('recipe')) params.recipe = sp.get('recipe') || 'CAST_100';
+      if (sp.has('run')) params.run = sp.get('run') === 'true' || sp.get('run') === '1';
+      if (sp.has('speed')) params.speed = parseFloat(sp.get('speed')) || 30;
+      if (sp.has('light')) params.light = parseFloat(sp.get('light')) || 92;
+      if (sp.has('enc')) params.enc = parseFloat(sp.get('enc')) || 0;
+      if (sp.has('serial')) params.serial = sp.get('serial') || 'CAST-01001';
+      if (sp.has('status')) params.status = sp.get('status') || 'OK';
+      if (sp.has('defect')) params.defect = sp.get('defect') || 'OK';
+      if (sp.has('edgems')) params.edgems = parseFloat(sp.get('edgems')) || 14.2;
+      if (sp.has('cloudms')) params.cloudms = parseFloat(sp.get('cloudms')) || 820;
+      if (sp.has('solenoid')) params.solenoid = sp.get('solenoid') === 'true' || sp.get('solenoid') === '1';
+      updateHud();
+    }
+
+    function updateHud() {
+      document.getElementById('hudRecipe').textContent = params.recipe;
+      document.getElementById('hudEncoder').textContent = Math.round(params.enc);
+      document.getElementById('hudSpeed').textContent = Math.round(params.speed);
+      document.getElementById('hudLight').textContent = Math.round(params.light);
+      document.getElementById('hudEdgeMs').textContent = params.edgems.toFixed(1) + ' ms';
+      document.getElementById('hudCloudMs').textContent = Math.round(params.cloudms) + ' ms';
+      document.getElementById('hudSerial').textContent = params.serial;
+      const stEl = document.getElementById('hudStatus');
+      stEl.textContent = params.status + ' (' + params.defect + ')';
+      stEl.className = 'hud-badge ' + (params.status === 'OK' ? 'ok' : 'nok');
+
+      if (params.serial && params.serial !== lastSerial) {
+        lastSerial = params.serial;
+        spawnPart(params.recipe, params.status);
+      }
+    }
+
+    window.addEventListener('hashchange', parseHashFromIgnition);
+    parseHashFromIgnition();
+    spawnPart('CAST_100', 'OK');
+
+    let spawnTimer = 0;
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      controls.update();
+
+      const beltV = params.run ? (params.speed / 30.0) * 1.45 : 0.0;
+      stripes.forEach(s => {
+        s.position.x += beltV * dt;
+        if (s.position.x > 3.4) s.position.x -= 6.8;
+      });
+
+      if (params.run) {
+        spawnTimer += dt;
+        if (spawnTimer > Math.max(1.8, 65.0 / Math.max(10, params.speed))) {
+          spawnTimer = 0;
+          spawnPart(params.recipe, params.status);
+        }
+      }
+
+      if (flashIntensity > 0.25) {
+        flashIntensity = Math.max(0.25, flashIntensity - dt * 7.0);
+        flashLight.intensity = flashIntensity;
+        ringMat.color.setHex(flashIntensity > 1.2 ? 0xffffff : 0x38bdf8);
+      }
+
+      let pusherExtending = params.solenoid;
+      for (let i = simulatedParts.length - 1; i >= 0; i--) {
+        const p = simulatedParts[i];
+        if (params.run && !p.rejected) {
+          p.mesh.position.x += beltV * dt;
+        }
+        p.mesh.rotation.y += dt * 0.65;
+        if (p.mesh.position.x >= 1.75 && p.mesh.position.x <= 2.1 && p.status === 'NOK') {
+          p.rejected = true;
+          pusherExtending = true;
+        }
+        if (p.rejected) {
+          p.mesh.position.z += dt * 2.8;
+          p.mesh.position.y = Math.max(0.55, p.mesh.position.y - dt * 1.2);
+        }
+        if (p.mesh.position.x > 3.65 || p.mesh.position.z > 1.05) {
+          scene.remove(p.mesh);
+          simulatedParts.splice(i, 1);
+        }
+      }
+
+      const targetRodZ = pusherExtending ? 0.90 : 0.35;
+      pistonRod.position.z += (targetRodZ - pistonRod.position.z) * 0.25;
+      pusherPlate.position.z = pistonRod.position.z + 0.37;
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

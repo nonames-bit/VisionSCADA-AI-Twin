@@ -2,11 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>VisionSCADA 3D AOI Cell — v2 (PBR + GLB ready)</title>
+  <title>VisionSCADA 3D AOI Cell — v3 (PBR + GLB ready)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0b1120; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
     #canvas3d { width: 100vw; height: 100vh; display: block; }
+    #vignette {
+      position: fixed; inset: 0; pointer-events: none; z-index: 5;
+      background: radial-gradient(ellipse at center, transparent 52%, rgba(2, 6, 17, 0.55) 100%);
+    }
     .hud-top {
       position: absolute; top: 10px; left: 10px; right: 10px;
       display: flex; justify-content: space-between; align-items: flex-start;
@@ -25,18 +29,27 @@
     .ok { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
     .nok { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; }
     .mini { margin-top: 4px; color: #64748b; font-size: 11px; }
-  </style>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    .hud-hint {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 999px; padding: 4px 14px; font-size: 11px; color: #94a3b8;
+      pointer-events: none; backdrop-filter: blur(4px);
     }
-  }
-  </script>
+    #errbox {
+      display: none; position: fixed; bottom: 10px; left: 10px; right: 10px;
+      background: #7f1d1d; color: #fecaca; font: 12px Consolas, monospace;
+      padding: 10px; border-radius: 6px; z-index: 99; white-space: pre-wrap;
+      max-height: 140px; overflow: auto;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
   <canvas id="canvas3d"></canvas>
+  <div id="vignette"></div>
+  <div id="errbox"></div>
   <div class="hud-top">
     <div class="hud-card">
       <strong>CELDA 3D AOI — SOFT-PLC FIFO TRACKING</strong>
@@ -59,17 +72,16 @@
       </div>
     </div>
   </div>
+  <div class="hud-hint">R — órbita automática <span id="hintState" style="color:#64748b;">OFF</span></div>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+  <script>
+    const errbox = document.getElementById('errbox');
+    function showErr(msg) {
+      errbox.style.display = 'block';
+      errbox.textContent += (errbox.textContent ? '\n' : '') + msg;
+    }
+    window.addEventListener('error', e => showErr(e.message));
+    window.addEventListener('unhandledrejection', e => showErr('Promise: ' + (e.reason && e.reason.message || e.reason)));
 
     const canvas = document.getElementById('canvas3d');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -77,13 +89,12 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.useLegacyLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b1120);
-    scene.fog = new THREE.FogExp2(0x0b1120, 0.038);
+    scene.fog = new THREE.FogExp2(0x0b1120, 0.03);
 
     const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(1.4, 4.6, 7.4);
@@ -91,20 +102,57 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.target.set(0.2, 1.05, 0);
     controls.enableDamping = true;
-    controls.maxPolarAngle = Math.PI * 0.485;
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = 0.7;
+    const hintState = document.getElementById('hintState');
+    window.addEventListener('keydown', e => {
+      if (e.key === 'r' || e.key === 'R') {
+        controls.autoRotate = !controls.autoRotate;
+        hintState.textContent = controls.autoRotate ? 'ON' : 'OFF';
+        hintState.style.color = controls.autoRotate ? '#34d399' : '#64748b';
+      }
+    });
 
-    // Image-based lighting (studio reflections for all PBR metals/plastics)
+    // Studio environment for PBR reflections (works on any three version)
     const pmrem = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    (function buildEnv() {
+      const studio = new THREE.Scene();
+      const h = 6;
+      const wall = (w, hh, mat, pos, rot) => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, hh), mat);
+        m.position.copy(pos);
+        if (rot) m.rotation.copy(rot);
+        studio.add(m);
+      };
+      const dark = new THREE.MeshBasicMaterial({ color: 0x1b2434 });
+      wall(30, h, dark, new THREE.Vector3(0, h / 2, -11));
+      wall(30, h, dark, new THREE.Vector3(0, h / 2, 11), new THREE.Euler(0, Math.PI, 0));
+      wall(30, 30, dark, new THREE.Vector3(-11, h / 2, 0), new THREE.Euler(0, Math.PI / 2, 0));
+      wall(30, 30, dark, new THREE.Vector3(11, h / 2, 0), new THREE.Euler(0, -Math.PI / 2, 0));
+      const floorBlock = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: 0x0d1322 }));
+      floorBlock.rotation.x = -Math.PI / 2;
+      floorBlock.position.y = 0;
+      studio.add(floorBlock);
+      const ceilLight = new THREE.Mesh(new THREE.PlaneGeometry(8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      ceilLight.position.set(0, h - 0.01, 0);
+      ceilLight.rotation.x = Math.PI / 2;
+      studio.add(ceilLight);
+      const sidePanel = new THREE.Mesh(new THREE.PlaneGeometry(10, 3), new THREE.MeshBasicMaterial({ color: 0x274a6d }));
+      sidePanel.position.set(0, h - 0.01, -8.9);
+      sidePanel.rotation.x = Math.PI / 2;
+      studio.add(sidePanel);
+      scene.environment = pmrem.fromScene(studio, 0.06).texture;
+    })();
 
     // Lighting rig: soft fill + key with shadows + cool rim
     const hemi = new THREE.HemisphereLight(0x93b8ff, 0x1e293b, 0.55);
     scene.add(hemi);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
     keyLight.position.set(4.5, 9, 5.5);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
     keyLight.shadow.camera.left = -7;
     keyLight.shadow.camera.right = 7;
     keyLight.shadow.camera.top = 6;
@@ -112,11 +160,11 @@
     keyLight.shadow.bias = -0.0004;
     scene.add(keyLight);
 
-    const fillLight = new THREE.PointLight(0x38bdf8, 7, 14);
+    const fillLight = new THREE.PointLight(0x38bdf8, 0.45, 14);
     fillLight.position.set(-3.5, 2.4, 3.5);
     scene.add(fillLight);
 
-    const rimLight = new THREE.SpotLight(0x7dd3fc, 2.2, 25, 0.62, 0.5);
+    const rimLight = new THREE.SpotLight(0x7dd3fc, 0.7, 25, 0.62, 0.5);
     rimLight.position.set(-3.2, 6.5, -5.5);
     rimLight.target.position.set(0.5, 1, 0);
     scene.add(rimLight);
@@ -134,11 +182,134 @@
     const accMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.55, roughness: 0.25, envMapIntensity: 1.0 });
     const yellowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.2, roughness: 0.5 });
     const glowMat = new THREE.MeshStandardMaterial({ color: 0x0b1120, emissive: 0x38bdf8, emissiveIntensity: 0.35 });
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
 
-    // Cleanroom epoxy floor + safety details
+    // Rounded box helper (beveled extrude) so nothing looks like a hard cube
+    function roundBox(w, h, d, r) {
+      r = Math.min(r || 0.04, w / 2 - 0.001, d / 2 - 0.001, h / 2 - 0.001);
+      let bt = r * 0.55, depth = h - bt * 2;
+      if (depth <= 0.001) { bt = 0; depth = h; }
+      const shape = new THREE.Shape();
+      const hs = w / 2, vs = d / 2;
+      shape.moveTo(-hs + r, -vs);
+      shape.lineTo(hs - r, -vs);
+      shape.quadraticCurveTo(hs, -vs, hs, -vs + r);
+      shape.lineTo(hs, vs - r);
+      shape.quadraticCurveTo(hs, vs, hs - r, vs);
+      shape.lineTo(-hs + r, vs);
+      shape.quadraticCurveTo(-hs, vs, -hs, vs - r);
+      shape.lineTo(-hs, -vs + r);
+      shape.quadraticCurveTo(-hs, -vs, -hs + r, -vs);
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth, bevelEnabled: true, bevelThickness: bt, bevelSize: r, bevelSegments: 2, steps: 1
+      });
+      geo.rotateX(Math.PI / 2);
+      return geo;
+    }
+
+    // Soft additive glow sprite (fake bloom, version independent)
+    function hexToRgba(hex, a) {
+      const n = parseInt(hex.slice(1), 16);
+      return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+    }
+    function makeGlow(hex, size) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, hexToRgba(hex, 0.85));
+      g.addColorStop(0.35, hexToRgba(hex, 0.28));
+      g.addColorStop(1, hexToRgba(hex, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 128, 128);
+      const mat = new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(c),
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      });
+      const sp = new THREE.Sprite(mat);
+      sp.scale.setScalar(size);
+      return sp;
+    }
+
+    // Text label sprite (machine plates, bin labels)
+    function textSprite(text, opts) {
+      opts = opts || {};
+      const cw = 512, ch = 128;
+      const c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = opts.bg || 'rgba(11,17,32,0.92)';
+      ctx.fillRect(0, 0, cw, ch);
+      if (opts.border) {
+        ctx.strokeStyle = opts.border;
+        ctx.lineWidth = 6;
+        ctx.strokeRect(3, 3, cw - 6, ch - 6);
+      }
+      ctx.fillStyle = opts.fg || '#7dd3fc';
+      ctx.font = 'bold ' + (opts.size || 60) + 'px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 10;
+      const lines = String(text).split('\n');
+      lines.forEach((l, i) => ctx.fillText(l, cw / 2, ch / 2 + (i - (lines.length - 1) / 2) * (opts.size || 60) * 1.15));
+      const tex = new THREE.CanvasTexture(c);
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+      const sp = new THREE.Sprite(mat);
+      const scale = opts.scale || 0.6;
+      sp.scale.set(scale * (cw / ch), scale, 1);
+      return sp;
+    }
+
+    // Diagonal yellow/black hazard tape texture
+    function hazardTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#eab308';
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.fillStyle = '#0f172a';
+      const step = 32;
+      for (let x = -64; x < 256 + 64; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 64);
+        ctx.lineTo(x + step / 2, 64);
+        ctx.lineTo(x + step * 1.5, 0);
+        ctx.lineTo(x + step, 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    // Floor ambient-occlusion decal (dark contact shadow under machines)
+    function aoDecal(sizeX, sizeZ, strength) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const ctx = c.getContext('2d');
+      const s = strength || 0.5;
+      const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 64);
+      g.addColorStop(0, 'rgba(0,0,0,' + s + ')');
+      g.addColorStop(0.7, 'rgba(0,0,0,' + (s * 0.35) + ')');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 128, 128);
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(sizeX, sizeZ),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false })
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = 0.016;
+      return m;
+    }
+
+    // Cleanroom epoxy floor (semi-glossy reflection) + safety details
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(26, 16),
-      new THREE.MeshStandardMaterial({ color: 0x111a2e, roughness: 0.55, metalness: 0.18, envMapIntensity: 0.7 })
+      new THREE.MeshStandardMaterial({ color: 0x121c30, roughness: 0.32, metalness: 0.28, envMapIntensity: 1.1 })
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -147,6 +318,25 @@
     const grid = new THREE.GridHelper(22, 22, 0x22304a, 0x1a2538);
     grid.position.y = 0.01;
     scene.add(grid);
+
+    const hazardMat = new THREE.MeshBasicMaterial({ map: hazardTexture() });
+    [
+      { x: 0, z: 0.92, sx: 7.6, sz: 0.22, rx: 1 },
+      { x: 0, z: -0.92, sx: 7.6, sz: 0.22, rx: 1 },
+      { x: 1.85, z: 1.62, sx: 1.2, sz: 0.22, rx: 1 },
+      { x: 3.9, z: 0.72, sx: 1.1, sz: 0.22, rx: 1 }
+    ].forEach(o => {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(o.sx, o.sz), hazardMat);
+      s.rotation.x = -Math.PI / 2;
+      s.position.set(o.x, 0.018, o.z);
+      s.material.map.repeat.set(Math.round(o.sx / 0.5), 1);
+      scene.add(s);
+    });
+
+    // Fake AO under the machines
+    scene.add(aoDecal(9.0, 3.4, 0.55));
+    scene.add(aoDecal(3.2, 3.2, 0.5));
+    scene.add(aoDecal(2.4, 2.8, 0.45));
 
     const safetyMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
     [
@@ -170,7 +360,7 @@
       cap.position.y = 0.88;
       b.add(pole, cap);
       b.position.set(p[0], 0, p[1]);
-      b.traverse(o => { o.castShadow = true; });
+      b.traverse(o => { if (o.isMesh) o.castShadow = true; });
       scene.add(b);
     });
 
@@ -185,7 +375,7 @@
       part_vial: 'part_vial.glb',
       part_pcb: 'part_pcb.glb'
     };
-    const gltfLoader = new GLTFLoader();
+    const gltfLoader = new THREE.GLTFLoader();
     function tryLoadModel(file, apply) {
       return new Promise(resolve => {
         gltfLoader.load(MODEL_DIR + file, gltf => {
@@ -231,6 +421,16 @@
       });
     });
 
+    // Drive motor at the infeed end
+    const motorBody = new THREE.Mesh(roundBox(0.34, 0.28, 0.28, 0.05), steelMat);
+    motorBody.position.set(-3.68, 0.6, -0.55);
+    motorBody.castShadow = true;
+    convProc.add(motorBody);
+    const motorShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 12), darkMetalMat);
+    motorShaft.rotation.x = Math.PI / 2;
+    motorShaft.position.set(-3.58, 0.66, -0.24);
+    convProc.add(motorShaft);
+
     const belt = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.04, 1.02), beltMat);
     belt.position.set(0, 0.99, 0);
     convProc.add(belt);
@@ -259,30 +459,78 @@
       convProc.add(brace);
     });
 
+    // --- Overhead cable tray & drop cables ---
+    const trayY = 3.15;
+    [-1.5, 1.5].forEach(z => {
+      const tray = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.06, 0.18), steelMat);
+      tray.position.set(0.8, trayY, z);
+      tray.castShadow = true;
+      scene.add(tray);
+    });
+    [[-4.5, -1.5], [4.5, -1.5], [-4.5, 1.5], [4.5, 1.5]].forEach(p => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, trayY + 0.35, 12), darkMetalMat);
+      post.position.set(p[0], (trayY + 0.05) / 2, p[1]);
+      scene.add(post);
+    });
+    for (let x = -4.3; x <= 4.3; x += 1.2) {
+      const rung = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 3.0), darkMetalMat);
+      rung.position.set(x, trayY - 0.055, 0);
+      scene.add(rung);
+    }
+    function dropCable(p0, p1) {
+      const mid = new THREE.Vector3(
+        (p0.x + p1.x) / 2,
+        Math.max(p0.y, p1.y) - Math.min(0.8, Math.abs(p1.x - p0.x) * 0.25 + 0.35),
+        (p0.z + p1.z) / 2
+      );
+      const curve = new THREE.CatmullRomCurve3([p0, mid, p1]);
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.02, 8, false), cableMat);
+      scene.add(tube);
+    }
+    dropCable(new THREE.Vector3(-1.6, trayY - 0.06, -1.5), new THREE.Vector3(-1.6, 2.35, -0.78));
+    dropCable(new THREE.Vector3(-1.6, trayY - 0.06, 1.5), new THREE.Vector3(-1.6, 1.4, 0.78));
+    dropCable(new THREE.Vector3(1.85, trayY - 0.06, -1.5), new THREE.Vector3(1.85, 1.5, -1.0));
+    dropCable(new THREE.Vector3(-3.68, trayY - 0.06, 1.5), new THREE.Vector3(-3.68, 0.85, -0.55));
+
     // --- Vision inspection gantry (procedural fallback) ---
     const gantryProc = new THREE.Group();
     gantryProc.position.set(-1.6, 0, 0);
     scene.add(gantryProc);
 
     [-0.78, 0.78].forEach(z => {
-      const col = new THREE.Mesh(new RoundedBoxGeometry(0.26, 1.9, 0.26, 3, 0.04), accMat);
+      const col = new THREE.Mesh(roundBox(0.26, 1.9, 0.26, 0.05), accMat);
       col.position.set(0, 0.95, z);
       col.castShadow = true;
       gantryProc.add(col);
-      const foot = new THREE.Mesh(new RoundedBoxGeometry(0.38, 0.05, 0.38, 2, 0.01), darkMetalMat);
+      const foot = new THREE.Mesh(roundBox(0.38, 0.05, 0.38, 0.015), darkMetalMat);
       foot.position.set(0, 0.03, z);
       gantryProc.add(foot);
     });
 
-    const beam = new THREE.Mesh(new RoundedBoxGeometry(1.35, 0.32, 0.55, 3, 0.05), accMat);
+    const beam = new THREE.Mesh(roundBox(1.35, 0.32, 0.55, 0.06), accMat);
     beam.position.set(0, 2.2, 0);
     beam.castShadow = true;
     gantryProc.add(beam);
 
-    const housing = new THREE.Mesh(new RoundedBoxGeometry(1.12, 0.92, 1.5, 3, 0.06), hoodMat);
+    const housing = new THREE.Mesh(roundBox(1.12, 0.92, 1.5, 0.08), hoodMat);
     housing.position.set(0, 1.63, 0);
     housing.castShadow = true;
     gantryProc.add(housing);
+
+    // AOI faceplate on the housing
+    const faceplate = textSprite('AOI VISION CELL\nINSPECTION UNIT', { scale: 0.62, size: 52, fg: '#7dd3fc', border: '#1e3a5f' });
+    faceplate.position.set(0, 1.62, 0.78);
+    gantryProc.add(faceplate);
+
+    // Camera illumination cone (subtle additive beam)
+    const beamConeMat = new THREE.MeshBasicMaterial({
+      color: 0x7dd3fc, transparent: true, opacity: 0.05,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const beamCone = new THREE.Mesh(new THREE.ConeGeometry(0.75, 1.25, 32, 1, true), beamConeMat);
+    beamCone.position.set(0, 1.32, 0);
+    beamCone.rotation.x = Math.PI;
+    gantryProc.add(beamCone);
 
     const glowStrip = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.015, 1.1), glowMat);
     glowStrip.position.set(0, 1.19, 0);
@@ -304,15 +552,23 @@
     ledRing.position.set(0, 1.71, 0);
     gantryProc.add(ledRing);
 
+    const ringGlow = makeGlow('#38bdf8', 1.4);
+    ringGlow.position.set(0, 1.7, 0);
+    gantryProc.add(ringGlow);
+
     const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
     const laserBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.15, 8), laserMat);
     laserBeam.rotation.x = Math.PI / 2;
     laserBeam.position.set(-0.55, 1.13, 0);
     gantryProc.add(laserBeam);
+    const laserGlow = makeGlow('#ef4444', 0.28);
+    laserGlow.position.set(-0.55, 1.13, 0);
+    gantryProc.add(laserGlow);
 
     // Controller box with status LEDs on the right column
-    const ctrl = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.34, 0.3, 3, 0.035), hoodMat);
+    const ctrl = new THREE.Mesh(roundBox(0.22, 0.34, 0.3, 0.04), hoodMat);
     ctrl.position.set(0.32, 1.22, 0.78);
+    ctrl.castShadow = true;
     gantryProc.add(ctrl);
     [0x34d399, 0xfacc15, 0xf87171].forEach((c, i) => {
       const led = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 12),
@@ -320,34 +576,32 @@
       led.position.set(0.32, 1.33 - i * 0.055, 0.96);
       gantryProc.add(led);
     });
+    const plateLabel = textSprite('VISIONSCADA', { scale: 0.34, size: 52, fg: '#e2e8f0', bg: 'rgba(30,41,59,0.9)' });
+    plateLabel.position.set(0.45, 1.35, 0.78);
+    gantryProc.add(plateLabel);
 
-    // Stack light beacon on the left column
+    // Stack light (red + green) mirroring last part status
     const beaconBase = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.09, 16), darkMetalMat);
-    beaconBase.position.set(0, 2.28, -0.78);
+    beaconBase.position.set(0, 2.27, -0.78);
     gantryProc.add(beaconBase);
-    const beaconMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, emissive: 0xef4444, emissiveIntensity: 1.6 });
-    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.16, 16), beaconMat);
-    beacon.position.set(0, 2.4, -0.78);
-    gantryProc.add(beacon);
-
-    // Cable from controller to beam
-    const cableCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0.32, 1.4, 0.78),
-      new THREE.Vector3(0.55, 1.95, 0.55),
-      new THREE.Vector3(0.1, 2.42, 0.0)
-    ]);
-    const cable = new THREE.Mesh(
-      new THREE.TubeGeometry(cableCurve, 24, 0.014, 8, false),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 })
-    );
-    gantryProc.add(cable);
+    const beaconMatRed = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, emissive: 0xef4444, emissiveIntensity: 0.3 });
+    const beaconRed = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.11, 16), beaconMatRed);
+    beaconRed.position.set(0, 2.43, -0.78);
+    gantryProc.add(beaconRed);
+    const beaconMatGreen = new THREE.MeshStandardMaterial({ color: 0x14532d, emissive: 0x22c55e, emissiveIntensity: 1.7 });
+    const beaconGreen = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.11, 16), beaconMatGreen);
+    beaconGreen.position.set(0, 2.33, -0.78);
+    gantryProc.add(beaconGreen);
+    const beaconGlow = makeGlow('#22c55e', 0.55);
+    beaconGlow.position.set(0, 2.34, -0.78);
+    gantryProc.add(beaconGlow);
 
     // --- Pneumatic reject pusher (procedural fallback) ---
     const pusherProc = new THREE.Group();
     pusherProc.position.set(1.85, 1.18, -0.82);
     scene.add(pusherProc);
 
-    const cylBase = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.3, 0.4, 3, 0.03), steelMat);
+    const cylBase = new THREE.Mesh(roundBox(0.42, 0.3, 0.4, 0.04), steelMat);
     pusherProc.add(cylBase);
 
     const cylTube = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.58, 24), steelMat);
@@ -367,7 +621,7 @@
       pusherProc.add(port);
     });
 
-    const solenoid = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.22, 0.5, 2, 0.02), darkMetalMat);
+    const solenoid = new THREE.Mesh(roundBox(0.3, 0.22, 0.5, 0.03), darkMetalMat);
     solenoid.position.set(0, -0.3, 0.1);
     pusherProc.add(solenoid);
 
@@ -378,7 +632,7 @@
     pusherProc.add(pistonRod);
 
     const pusherPlate = new THREE.Mesh(
-      new RoundedBoxGeometry(0.44, 0.24, 0.06, 2, 0.015),
+      roundBox(0.44, 0.24, 0.06, 0.02),
       new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.35, roughness: 0.32, envMapIntensity: 0.9 })
     );
     pusherPlate.position.set(0, 0, 0.76);
@@ -389,26 +643,19 @@
       new THREE.Vector3(0.3, -0.35, -0.6),
       new THREE.Vector3(0.5, -0.6, -0.5)
     ]);
-    const hose = new THREE.Mesh(
-      new THREE.TubeGeometry(hoseCurve, 20, 0.016, 8, false),
-      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 })
-    );
+    const hose = new THREE.Mesh(new THREE.TubeGeometry(hoseCurve, 20, 0.016, 8, false), cableMat);
     pusherProc.add(hose);
 
-    // --- Reject & OK bins ---
-    function makeBin(color, w, h, d, x, z) {
+    // --- Reject & OK bins with labels ---
+    function makeBin(color, w, h, d, x, z, label, labelColor) {
       const g = new THREE.Group();
-      const body = new THREE.Mesh(
-        new RoundedBoxGeometry(w, h, d, 3, 0.05),
-        new THREE.MeshStandardMaterial({ color, metalness: 0.32, roughness: 0.45, envMapIntensity: 0.9 })
-      );
+      const body = new THREE.Mesh(roundBox(w, h, d, 0.06),
+        new THREE.MeshStandardMaterial({ color, metalness: 0.32, roughness: 0.45, envMapIntensity: 0.9 }));
       body.castShadow = true;
       body.receiveShadow = true;
       g.add(body);
-      const rim = new THREE.Mesh(
-        new RoundedBoxGeometry(w + 0.05, 0.07, d + 0.05, 3, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.2, roughness: 0.45 })
-      );
+      const rim = new THREE.Mesh(roundBox(w + 0.05, 0.07, d + 0.05, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.2, roughness: 0.45 }));
       rim.position.y = h / 2 + 0.01;
       g.add(rim);
       for (let i = 0; i < 3; i++) {
@@ -421,15 +668,34 @@
       }
       g.position.set(x, h / 2, z);
       scene.add(g);
+      const labelSprite = textSprite(label, { scale: 0.5, size: 56, fg: labelColor || '#e2e8f0' });
+      labelSprite.position.set(x, h + 0.35, z);
+      scene.add(labelSprite);
     }
-    makeBin(0x991b1b, 0.95, 0.75, 0.85, 1.85, 1.18);
-    makeBin(0x065f46, 0.85, 0.75, 1.15, 3.9, 0);
+    makeBin(0x991b1b, 0.95, 0.75, 0.85, 1.85, 1.18, 'REJECT', '#f87171');
+    makeBin(0x065f46, 0.85, 0.75, 1.15, 3.9, 0, 'OK / PASS', '#34d399');
+
+    // --- Airborne particles (subtle dust) ---
+    const dustCount = 160;
+    const dustGeo = new THREE.BufferGeometry();
+    const dustPos = new Float32Array(dustCount * 3);
+    for (let i = 0; i < dustCount; i++) {
+      dustPos[i * 3] = (Math.random() - 0.5) * 12;
+      dustPos[i * 3 + 1] = 0.4 + Math.random() * 2.9;
+      dustPos[i * 3 + 2] = (Math.random() - 0.5) * 5;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+      color: 0x9fc3ff, size: 0.018, transparent: true, opacity: 0.28,
+      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    }));
+    scene.add(dust);
 
     // --- Procedural part builders (used when no .glb part exists) ---
     const partProcedural = {
       CAST_100(group) {
         const iron = new THREE.MeshStandardMaterial({ color: 0x8b98ab, metalness: 0.85, roughness: 0.3, envMapIntensity: 1.2 });
-        const hubMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.2, envMapIntensity: 1.2 });
+        const hubMat2 = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.2, envMapIntensity: 1.2 });
         const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.035, 28), iron);
         disc.position.y = 0.02;
         group.add(disc);
@@ -441,7 +707,7 @@
           blade.rotation.z = -0.32;
           group.add(blade);
         }
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.22, 20), hubMat);
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.22, 20), hubMat2);
         hub.position.y = 0.1;
         group.add(hub);
         const shroud = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.026, 10, 28), iron);
@@ -450,9 +716,9 @@
         group.add(shroud);
       },
       PACK_200(group) {
-        const glass = new THREE.MeshPhysicalMaterial({
+        const glass = new THREE.MeshStandardMaterial({
           color: 0xa5d8ff, metalness: 0.05, roughness: 0.06,
-          transparent: true, opacity: 0.42, envMapIntensity: 1.1
+          transparent: true, opacity: 0.45, envMapIntensity: 1.1
         });
         const profile = [
           new THREE.Vector2(0.0, 0.0),
@@ -480,10 +746,8 @@
         group.add(cap);
       },
       PCB_500(group) {
-        const board = new THREE.Mesh(
-          new RoundedBoxGeometry(0.46, 0.035, 0.4, 2, 0.008),
-          new THREE.MeshStandardMaterial({ color: 0x166534, metalness: 0.25, roughness: 0.45, envMapIntensity: 0.8 })
-        );
+        const board = new THREE.Mesh(roundBox(0.46, 0.035, 0.4, 0.01),
+          new THREE.MeshStandardMaterial({ color: 0x166534, metalness: 0.25, roughness: 0.45, envMapIntensity: 0.8 }));
         board.position.y = 0.018;
         group.add(board);
         const gold = new THREE.MeshBasicMaterial({ color: 0xd4a017 });
@@ -492,10 +756,8 @@
           t.position.set(0, 0.04, z - 0.1);
           group.add(t);
         }
-        const chip = new THREE.Mesh(
-          new RoundedBoxGeometry(0.16, 0.05, 0.16, 2, 0.01),
-          new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.28, envMapIntensity: 1.1 })
-        );
+        const chip = new THREE.Mesh(roundBox(0.16, 0.05, 0.16, 0.015),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.28, envMapIntensity: 1.1 }));
         chip.position.y = 0.065;
         group.add(chip);
         [[0.16, 0.14], [0.16, -0.14], [-0.16, 0.14]].forEach(p => {
@@ -611,22 +873,14 @@
     setInterval(pollState, 350);
     pollState();
 
-    // Post-processing (bloom); fallback to plain render if unsupported
-    let composer = null;
-    try {
-      composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-      const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.42, 0.55, 0.68);
-      composer.addPass(bloom);
-      composer.addPass(new OutputPass());
-    } catch (e) {
-      composer = null;
-    }
+    const ringGlowMat = ringGlow.material;
+    const beaconGlowMat = beaconGlow.material;
 
     const clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
       const dt = clock.getDelta();
+      const t = clock.getElapsedTime();
       controls.update();
 
       // Animate conveyor belt stripes
@@ -643,7 +897,23 @@
         flashLight.intensity = flashIntensity;
         ringMat.color.setHex(flashIntensity > 1.2 ? 0xffffff : 0x38bdf8);
         glowMat.emissiveIntensity = flashIntensity > 1.2 ? 4.5 : 0.35;
-        beaconMat.emissiveIntensity = flashIntensity > 1.2 ? 6 : 1.6;
+        ringGlowMat.opacity = flashIntensity > 1.2 ? 0.95 : 0.45;
+        beamConeMat.opacity = flashIntensity > 1.2 ? 0.14 : 0.05;
+      }
+
+      // Stack light follows last inspected part status (blinks red on NOK)
+      const lastStatus = liveState?.udts?.UDT_VisionCamera?.Last_Status;
+      if (lastStatus === 'NOK') {
+        const pulse = Math.sin(t * 7) > 0.2 ? 5 : 0.35;
+        beaconMatRed.emissiveIntensity = pulse;
+        beaconMatGreen.emissiveIntensity = 0.25;
+        beaconGlowMat.color.setHex(0xef4444);
+        beaconGlowMat.opacity = pulse > 2 ? 0.7 : 0.3;
+      } else {
+        beaconMatRed.emissiveIntensity = 0.25;
+        beaconMatGreen.emissiveIntensity = 1.7;
+        beaconGlowMat.color.setHex(0x22c55e);
+        beaconGlowMat.opacity = 0.55;
       }
 
       // Pneumatic reject solenoid extension
@@ -651,6 +921,10 @@
       const targetZ = solenoidActive ? 0.55 : 0.0;
       pistonRod.position.z += (0.36 + targetZ - pistonRod.position.z) * 0.25;
       pusherPlate.position.z = pistonRod.position.z + 0.4;
+
+      // Drifting airborne particles
+      dust.rotation.y += dt * 0.02;
+      dust.position.y = Math.sin(t * 0.3) * 0.07;
 
       // Sync FIFO queue parts in 3D space (pos_mm 0..1400 -> x -3.2..+3.2)
       const fifo = liveState?.fifo_queue || [];
@@ -682,8 +956,7 @@
         }
       }
 
-      if (composer) composer.render();
-      else renderer.render(scene, camera);
+      renderer.render(scene, camera);
     }
     animate();
 
@@ -691,7 +964,6 @@
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
-      if (composer) composer.setSize(window.innerWidth, window.innerHeight);
     });
   </script>
 </body>

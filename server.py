@@ -272,9 +272,45 @@ class VisionTwinRuntime:
         cam_udt["Cloud_Queue_Pending"] = len(self.cloud_auditor.queue)
         cam_udt["Edge_Model_Version"] = result["edge_model_version"]
         cam_udt["Shadow_Model_Version"] = result["shadow_model_version"]
+        cam_udt["Shadow_Status"] = result["shadow_status"]
+        cam_udt["Shadow_Defect_Class"] = result["shadow_defect_class"]
         cam_udt["Shadow_Agreement_Pct"] = agreement_pct
         cam_udt["Drift_PSI_Score"] = psi_drift
         cam_udt["Lens_Fault_Active"] = degrade
+        cam_udt["Last_Raw_URL"] = f"http://127.0.0.1:8020/{result['image_rel_path']}"
+        cam_udt["Last_Heatmap_URL"] = f"http://127.0.0.1:8020/{result['heatmap_rel_path']}"
+        cam_udt["Last_SHA256"] = result["sha256_hash"][:16]
+        cam_udt["Cloud_Audit_State"] = cloud_state
+
+        # Sync Cloud offline scenario flag & Copilot live summary for Ignition Perspective
+        self.cloud_auditor.cloud_offline = bool(self.plc.scenario_cloud_outage)
+        if self.plc.pending_promote_shadow:
+            self.plc.pending_promote_shadow = False
+            new_ver = f"v1.2.{int(time.time()) % 100}-hitl"
+            self.edge_engine.promote_shadow_to_production(recipe, new_ver)
+            cam_udt["Edge_Model_Version"] = new_ver
+
+        batch_udt = self.plc.udts["UDT_ProductionBatch"]
+        if self.plc.scenario_bad_supplier_lot:
+            batch_udt["Copilot_RCA_Summary"] = (
+                f"[ALERTA CAUSA RAÍZ SQL]: El proveedor {supplier_code} presenta alta tasa de defectos ({result['edge_defect_class']}) en lote {batch_code}. "
+                f"Carta p en estado {batch_udt['SPC_WE_Rule_Status']}. Acción sugerida: Contener lote y subir umbral Edge a 0.76."
+            )
+        elif degrade:
+            batch_udt["Copilot_RCA_Summary"] = (
+                f"[ALERTA DATA DRIFT PSI={psi_drift}]: Caída de brillo óptico ({result['brightness_mean']}). "
+                f"Acción sugerida: Limpiar lente telecéntrico y subir Light_Ring_PWM a 98%."
+            )
+        elif self.cloud_auditor.cloud_offline:
+            batch_udt["Copilot_RCA_Summary"] = (
+                f"[STORE-AND-FORWARD ACTIVO]: Sin conexión a Cloud API ({len(self.cloud_auditor.queue)} pzas en cola). "
+                f"El lazo determinista Edge ({result['edge_latency_ms']} ms) + Soft-PLC opera al 100% sin paro de línea."
+            )
+        else:
+            batch_udt["Copilot_RCA_Summary"] = (
+                f"[PROCESO EN CONTROL]: Lote {batch_code} ({supplier_code}) operando con FPY={batch_udt['OEE_Quality_FPY']}%. "
+                f"Edge decide en {result['edge_latency_ms']} ms (ventana pistón {travel_window_ms} ms); Cloud audita en {self.cloud_auditor.last_cloud_latency_ms} ms."
+            )
 
         # Persist inspection to PostgreSQL
         batch_id_map = {"CAST_100": 1, "PACK_200": 2, "PCB_300": 3}
@@ -473,11 +509,14 @@ async def plc_and_opcua_loop():
 
 async def cloud_store_and_forward_loop():
     while True:
+        runtime.cloud_auditor.cloud_offline = bool(runtime.plc.scenario_cloud_outage)
         if not runtime.cloud_auditor.cloud_offline and runtime.cloud_auditor.queue:
             res = runtime.cloud_auditor.process_next_in_queue()
             if res:
                 runtime.plc.udts["UDT_VisionCamera"]["Last_Cloud_Latency_ms"] = res["cloud_latency_ms"]
                 runtime.plc.udts["UDT_VisionCamera"]["Cloud_Queue_Pending"] = res["queue_remaining"]
+                runtime.plc.udts["UDT_VisionCamera"]["Cloud_Audit_State"] = "COMPLETED"
+                runtime.plc.udts["UDT_VisionCamera"]["Cloud_Diagnosis"] = res["cloud_diagnosis"]
                 runtime.uns_mqtt.publish_uns("DDATA", "CloudAsyncAudit", res)
             await asyncio.sleep(0.85)
         else:
