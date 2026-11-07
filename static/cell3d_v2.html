@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>VisionSCADA 3D AOI Cell — v2 (PBR + GLB ready)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0b1120; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+    #canvas3d { width: 100vw; height: 100vh; display: block; }
+    .hud-top {
+      position: absolute; top: 10px; left: 10px; right: 10px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      pointer-events: none; gap: 8px; flex-wrap: wrap;
+    }
+    .hud-card {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px; padding: 8px 12px;
+      font-size: 12px; backdrop-filter: blur(6px);
+    }
+    .hud-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-weight: 700; font-size: 11px; margin-left: 6px;
+    }
+    .ok { background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid #10b981; }
+    .nok { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; }
+    .mini { margin-top: 4px; color: #64748b; font-size: 11px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="canvas3d"></canvas>
+  <div class="hud-top">
+    <div class="hud-card">
+      <strong>CELDA 3D AOI — SOFT-PLC FIFO TRACKING</strong>
+      <span id="hudRecipe" class="hud-badge ok">CAST_100</span>
+      <div style="margin-top:4px; color:#94a3b8;">
+        Encoder: <span id="hudEncoder" style="color:#38bdf8;">0.0</span> mm |
+        Velocidad: <span id="hudSpeed" style="color:#38bdf8;">30</span> PPM |
+        Cola FIFO: <span id="hudFifo" style="color:#fbbf24;">0</span> pzas
+      </div>
+      <div class="mini">Modelos 3D: <span id="hudModels">procedural</span></div>
+    </div>
+    <div class="hud-card">
+      <div>
+        ⚡ <strong>Edge Decision:</strong> <span id="hudEdgeMs" style="color:#34d399; font-weight:700;">14.2 ms</span>
+        vs ☁️ <strong>Cloud Async:</strong> <span id="hudCloudMs" style="color:#fbbf24; font-weight:700;">840 ms</span>
+      </div>
+      <div style="margin-top:4px;">
+        Última Pieza: <span id="hudSerial" style="color:#e2e8f0; font-weight:600;">--</span>
+        <span id="hudStatus" class="hud-badge ok">OK</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    const canvas = document.getElementById('canvas3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.useLegacyLights = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1120);
+    scene.fog = new THREE.FogExp2(0x0b1120, 0.038);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(1.4, 4.6, 7.4);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0.2, 1.05, 0);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI * 0.485;
+
+    // Image-based lighting (studio reflections for all PBR metals/plastics)
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    // Lighting rig: soft fill + key with shadows + cool rim
+    const hemi = new THREE.HemisphereLight(0x93b8ff, 0x1e293b, 0.55);
+    scene.add(hemi);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
+    keyLight.position.set(4.5, 9, 5.5);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.left = -7;
+    keyLight.shadow.camera.right = 7;
+    keyLight.shadow.camera.top = 6;
+    keyLight.shadow.camera.bottom = -3;
+    keyLight.shadow.bias = -0.0004;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.PointLight(0x38bdf8, 7, 14);
+    fillLight.position.set(-3.5, 2.4, 3.5);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.SpotLight(0x7dd3fc, 2.2, 25, 0.62, 0.5);
+    rimLight.position.set(-3.2, 6.5, -5.5);
+    rimLight.target.position.set(0.5, 1, 0);
+    scene.add(rimLight);
+    scene.add(rimLight.target);
+
+    const flashLight = new THREE.PointLight(0x38bdf8, 0.2, 6);
+    flashLight.position.set(0, 1.72, 0);
+    scene.add(flashLight);
+
+    // Materials shared across the scene
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x51617a, metalness: 0.82, roughness: 0.34, envMapIntensity: 1.1 });
+    const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x2e3a4d, metalness: 0.85, roughness: 0.3, envMapIntensity: 1.05 });
+    const beltMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.12, roughness: 0.9 });
+    const hoodMat = new THREE.MeshStandardMaterial({ color: 0xe8eef5, metalness: 0.35, roughness: 0.28, envMapIntensity: 0.9 });
+    const accMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.55, roughness: 0.25, envMapIntensity: 1.0 });
+    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.2, roughness: 0.5 });
+    const glowMat = new THREE.MeshStandardMaterial({ color: 0x0b1120, emissive: 0x38bdf8, emissiveIntensity: 0.35 });
+
+    // Cleanroom epoxy floor + safety details
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(26, 16),
+      new THREE.MeshStandardMaterial({ color: 0x111a2e, roughness: 0.55, metalness: 0.18, envMapIntensity: 0.7 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(22, 22, 0x22304a, 0x1a2538);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    const safetyMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    [
+      { x: 1.2, z: 1.45, sx: 4.6, sz: 0.05 },
+      { x: 1.2, z: -1.45, sx: 4.6, sz: 0.05 },
+      { x: 4.3, z: 0.25, sx: 0.05, sz: 2.2 },
+      { x: -2.6, z: 1.45, sx: 0.05, sz: 3.0 }
+    ].forEach(o => {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(o.sx, o.sz), safetyMat);
+      s.rotation.x = -Math.PI / 2;
+      s.position.set(o.x, 0.02, o.z);
+      scene.add(s);
+    });
+
+    // Safety bollards around the cell
+    [[-2.2, 1.6], [-2.2, -1.6], [4.9, -1.2], [4.9, 1.2]].forEach(p => {
+      const b = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.85, 20), yellowMat);
+      pole.position.y = 0.425;
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.07, 20), yellowMat);
+      cap.position.y = 0.88;
+      b.add(pole, cap);
+      b.position.set(p[0], 0, p[1]);
+      b.traverse(o => { o.castShadow = true; });
+      scene.add(b);
+    });
+
+    // Optional GLB model support. Drop models in static/models/ with these
+    // exact filenames and they replace the procedural version automatically.
+    const MODEL_DIR = './models/';
+    const MODEL_FILES = {
+      conveyor: 'conveyor.glb',
+      gantry: 'vis_gantry.glb',
+      pusher: 'reject_pusher.glb',
+      part_cast: 'part_impeller.glb',
+      part_vial: 'part_vial.glb',
+      part_pcb: 'part_pcb.glb'
+    };
+    const gltfLoader = new GLTFLoader();
+    function tryLoadModel(file, apply) {
+      return new Promise(resolve => {
+        gltfLoader.load(MODEL_DIR + file, gltf => {
+          const root = gltf.scene;
+          root.traverse(o => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+              if (o.material) {
+                const mats = Array.isArray(o.material) ? o.material : [o.material];
+                o.material = mats.map(m => { const c = m.clone(); c.envMapIntensity = c.envMapIntensity || 1; return c; });
+              }
+            }
+          });
+          try { apply(root); resolve(true); } catch (e) { resolve(false); }
+        }, undefined, () => resolve(false));
+      });
+    }
+
+    // --- Conveyor (procedural fallback) ---
+    const convProc = new THREE.Group();
+    scene.add(convProc);
+
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.06, 1.2), darkMetalMat);
+    bed.position.set(0, 0.78, 0);
+    bed.receiveShadow = true;
+    convProc.add(bed);
+
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.78, roughness: 0.3, envMapIntensity: 1.05 });
+    [-0.6, 0.6].forEach(z => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(7.25, 0.14, 0.09), railMat);
+      rail.position.set(0, 0.88, z);
+      rail.castShadow = true;
+      convProc.add(rail);
+    });
+
+    [-3.45, 3.45].forEach(x => {
+      [-0.5, 0.5].forEach(z => {
+        const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 1.0, 18), darkMetalMat);
+        roller.rotation.x = Math.PI / 2;
+        roller.position.set(x, 0.68, z);
+        convProc.add(roller);
+      });
+    });
+
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.04, 1.02), beltMat);
+    belt.position.set(0, 0.99, 0);
+    convProc.add(belt);
+
+    const stripes = [];
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0x3b4a63 });
+    for (let i = 0; i < 14; i++) {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.055, 1.0), stripeMat);
+      s.position.set(-3.25 + i * 0.5, 1.01, 0);
+      convProc.add(s);
+      stripes.push(s);
+    }
+
+    [-3.1, -1.0, 1.0, 3.1].forEach(x => {
+      [-0.52, 0.52].forEach(z => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.72, 16), steelMat);
+        leg.position.set(x, 0.36, z);
+        leg.castShadow = true;
+        convProc.add(leg);
+        const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.11, 0.025, 16), darkMetalMat);
+        foot.position.set(x, 0.02, z);
+        convProc.add(foot);
+      });
+      const brace = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 1.1), darkMetalMat);
+      brace.position.set(x, 0.5, 0);
+      convProc.add(brace);
+    });
+
+    // --- Vision inspection gantry (procedural fallback) ---
+    const gantryProc = new THREE.Group();
+    gantryProc.position.set(-1.6, 0, 0);
+    scene.add(gantryProc);
+
+    [-0.78, 0.78].forEach(z => {
+      const col = new THREE.Mesh(new RoundedBoxGeometry(0.26, 1.9, 0.26, 3, 0.04), accMat);
+      col.position.set(0, 0.95, z);
+      col.castShadow = true;
+      gantryProc.add(col);
+      const foot = new THREE.Mesh(new RoundedBoxGeometry(0.38, 0.05, 0.38, 2, 0.01), darkMetalMat);
+      foot.position.set(0, 0.03, z);
+      gantryProc.add(foot);
+    });
+
+    const beam = new THREE.Mesh(new RoundedBoxGeometry(1.35, 0.32, 0.55, 3, 0.05), accMat);
+    beam.position.set(0, 2.2, 0);
+    beam.castShadow = true;
+    gantryProc.add(beam);
+
+    const housing = new THREE.Mesh(new RoundedBoxGeometry(1.12, 0.92, 1.5, 3, 0.06), hoodMat);
+    housing.position.set(0, 1.63, 0);
+    housing.castShadow = true;
+    gantryProc.add(housing);
+
+    const glowStrip = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.015, 1.1), glowMat);
+    glowStrip.position.set(0, 1.19, 0);
+    gantryProc.add(glowStrip);
+
+    const camBody = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.42, 24), accMat);
+    camBody.position.set(0, 1.99, 0);
+    camBody.rotation.x = Math.PI / 2;
+    gantryProc.add(camBody);
+
+    const camLens = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.08, 0.16, 24), darkMetalMat);
+    camLens.position.set(0, 1.82, 0);
+    camLens.rotation.x = Math.PI / 2;
+    gantryProc.add(camLens);
+
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const ledRing = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.035, 14, 36), ringMat);
+    ledRing.rotation.x = Math.PI / 2;
+    ledRing.position.set(0, 1.71, 0);
+    gantryProc.add(ledRing);
+
+    const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const laserBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.15, 8), laserMat);
+    laserBeam.rotation.x = Math.PI / 2;
+    laserBeam.position.set(-0.55, 1.13, 0);
+    gantryProc.add(laserBeam);
+
+    // Controller box with status LEDs on the right column
+    const ctrl = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.34, 0.3, 3, 0.035), hoodMat);
+    ctrl.position.set(0.32, 1.22, 0.78);
+    gantryProc.add(ctrl);
+    [0x34d399, 0xfacc15, 0xf87171].forEach((c, i) => {
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 12),
+        new THREE.MeshBasicMaterial({ color: c }));
+      led.position.set(0.32, 1.33 - i * 0.055, 0.96);
+      gantryProc.add(led);
+    });
+
+    // Stack light beacon on the left column
+    const beaconBase = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.09, 16), darkMetalMat);
+    beaconBase.position.set(0, 2.28, -0.78);
+    gantryProc.add(beaconBase);
+    const beaconMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, emissive: 0xef4444, emissiveIntensity: 1.6 });
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.16, 16), beaconMat);
+    beacon.position.set(0, 2.4, -0.78);
+    gantryProc.add(beacon);
+
+    // Cable from controller to beam
+    const cableCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.32, 1.4, 0.78),
+      new THREE.Vector3(0.55, 1.95, 0.55),
+      new THREE.Vector3(0.1, 2.42, 0.0)
+    ]);
+    const cable = new THREE.Mesh(
+      new THREE.TubeGeometry(cableCurve, 24, 0.014, 8, false),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 })
+    );
+    gantryProc.add(cable);
+
+    // --- Pneumatic reject pusher (procedural fallback) ---
+    const pusherProc = new THREE.Group();
+    pusherProc.position.set(1.85, 1.18, -0.82);
+    scene.add(pusherProc);
+
+    const cylBase = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.3, 0.4, 3, 0.03), steelMat);
+    pusherProc.add(cylBase);
+
+    const cylTube = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.58, 24), steelMat);
+    cylTube.rotation.x = Math.PI / 2;
+    cylTube.position.set(0, 0, -0.12);
+    pusherProc.add(cylTube);
+
+    const cylCap = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.05, 24), hoodMat);
+    cylCap.rotation.x = Math.PI / 2;
+    cylCap.position.set(0, 0, 0.15);
+    pusherProc.add(cylCap);
+
+    [[0.045, -0.05], [-0.045, -0.05]].forEach(p => {
+      const port = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.09, 12), yellowMat);
+      port.rotation.x = Math.PI / 2;
+      port.position.set(p[0], p[1], -0.48);
+      pusherProc.add(port);
+    });
+
+    const solenoid = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.22, 0.5, 2, 0.02), darkMetalMat);
+    solenoid.position.set(0, -0.3, 0.1);
+    pusherProc.add(solenoid);
+
+    const pistonRod = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.043, 0.8, 16),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.12, envMapIntensity: 1.2 }));
+    pistonRod.rotation.x = Math.PI / 2;
+    pistonRod.position.set(0, 0, 0.36);
+    pusherProc.add(pistonRod);
+
+    const pusherPlate = new THREE.Mesh(
+      new RoundedBoxGeometry(0.44, 0.24, 0.06, 2, 0.015),
+      new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.35, roughness: 0.32, envMapIntensity: 0.9 })
+    );
+    pusherPlate.position.set(0, 0, 0.76);
+    pusherProc.add(pusherPlate);
+
+    const hoseCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.045, -0.1, -0.52),
+      new THREE.Vector3(0.3, -0.35, -0.6),
+      new THREE.Vector3(0.5, -0.6, -0.5)
+    ]);
+    const hose = new THREE.Mesh(
+      new THREE.TubeGeometry(hoseCurve, 20, 0.016, 8, false),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 })
+    );
+    pusherProc.add(hose);
+
+    // --- Reject & OK bins ---
+    function makeBin(color, w, h, d, x, z) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(
+        new RoundedBoxGeometry(w, h, d, 3, 0.05),
+        new THREE.MeshStandardMaterial({ color, metalness: 0.32, roughness: 0.45, envMapIntensity: 0.9 })
+      );
+      body.castShadow = true;
+      body.receiveShadow = true;
+      g.add(body);
+      const rim = new THREE.Mesh(
+        new RoundedBoxGeometry(w + 0.05, 0.07, d + 0.05, 3, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.2, roughness: 0.45 })
+      );
+      rim.position.y = h / 2 + 0.01;
+      g.add(rim);
+      for (let i = 0; i < 3; i++) {
+        const stripe = new THREE.Mesh(
+          new THREE.BoxGeometry(w + 0.01, 0.09, d + 0.01),
+          new THREE.MeshBasicMaterial({ color: i % 2 ? 0xfacc15 : 0x111827 })
+        );
+        stripe.position.y = h * 0.22 + i * 0.13;
+        g.add(stripe);
+      }
+      g.position.set(x, h / 2, z);
+      scene.add(g);
+    }
+    makeBin(0x991b1b, 0.95, 0.75, 0.85, 1.85, 1.18);
+    makeBin(0x065f46, 0.85, 0.75, 1.15, 3.9, 0);
+
+    // --- Procedural part builders (used when no .glb part exists) ---
+    const partProcedural = {
+      CAST_100(group) {
+        const iron = new THREE.MeshStandardMaterial({ color: 0x8b98ab, metalness: 0.85, roughness: 0.3, envMapIntensity: 1.2 });
+        const hubMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.2, envMapIntensity: 1.2 });
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.035, 28), iron);
+        disc.position.y = 0.02;
+        group.add(disc);
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2;
+          const blade = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.16, 0.19), iron);
+          blade.position.set(Math.cos(a) * 0.13, 0.11, Math.sin(a) * 0.13);
+          blade.rotation.y = a;
+          blade.rotation.z = -0.32;
+          group.add(blade);
+        }
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.22, 20), hubMat);
+        hub.position.y = 0.1;
+        group.add(hub);
+        const shroud = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.026, 10, 28), iron);
+        shroud.rotation.x = Math.PI / 2;
+        shroud.position.y = 0.185;
+        group.add(shroud);
+      },
+      PACK_200(group) {
+        const glass = new THREE.MeshPhysicalMaterial({
+          color: 0xa5d8ff, metalness: 0.05, roughness: 0.06,
+          transparent: true, opacity: 0.42, envMapIntensity: 1.1
+        });
+        const profile = [
+          new THREE.Vector2(0.0, 0.0),
+          new THREE.Vector2(0.152, 0.0),
+          new THREE.Vector2(0.162, 0.02),
+          new THREE.Vector2(0.162, 0.27),
+          new THREE.Vector2(0.143, 0.31),
+          new THREE.Vector2(0.096, 0.33),
+          new THREE.Vector2(0.085, 0.365),
+          new THREE.Vector2(0.092, 0.398),
+          new THREE.Vector2(0.102, 0.405),
+          new THREE.Vector2(0.115, 0.412),
+          new THREE.Vector2(0.1, 0.42),
+          new THREE.Vector2(0.0, 0.42)
+        ];
+        const vial = new THREE.Mesh(new THREE.LatheGeometry(profile, 32), glass);
+        group.add(vial);
+        const liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.2, 24),
+          new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.6, roughness: 0.2 }));
+        liquid.position.y = 0.12;
+        group.add(liquid);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.098, 0.108, 0.09, 20),
+          new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.22, envMapIntensity: 1.0 }));
+        cap.position.y = 0.455;
+        group.add(cap);
+      },
+      PCB_500(group) {
+        const board = new THREE.Mesh(
+          new RoundedBoxGeometry(0.46, 0.035, 0.4, 2, 0.008),
+          new THREE.MeshStandardMaterial({ color: 0x166534, metalness: 0.25, roughness: 0.45, envMapIntensity: 0.8 })
+        );
+        board.position.y = 0.018;
+        group.add(board);
+        const gold = new THREE.MeshBasicMaterial({ color: 0xd4a017 });
+        for (let z = 0.0; z < 0.33; z += 0.11) {
+          const t = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.004, 0.012), gold);
+          t.position.set(0, 0.04, z - 0.1);
+          group.add(t);
+        }
+        const chip = new THREE.Mesh(
+          new RoundedBoxGeometry(0.16, 0.05, 0.16, 2, 0.01),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.28, envMapIntensity: 1.1 })
+        );
+        chip.position.y = 0.065;
+        group.add(chip);
+        [[0.16, 0.14], [0.16, -0.14], [-0.16, 0.14]].forEach(p => {
+          const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.045, 12),
+            new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.2 }));
+          cap.position.set(p[0], 0.043, p[1]);
+          group.add(cap);
+        });
+      }
+    };
+
+    const partModels = {};
+    const partMeshes = new Map();
+    let lastKnownSerial = "";
+    let flashIntensity = 0;
+
+    function tintNOK(group) {
+      group.traverse(o => {
+        if (o.isMesh && o.material) {
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          o.material = mats.map(m => {
+            const c = m.clone();
+            if (c.color) c.color.lerp(new THREE.Color(0xef4444), 0.5);
+            return c;
+          });
+        }
+      });
+    }
+
+    function fitPart(group, maxDim) {
+      const box = new THREE.Box3().setFromObject(group);
+      const size = box.getSize(new THREE.Vector3());
+      const s = maxDim / Math.max(size.x, size.y, size.z, 0.001);
+      const c = box.getCenter(new THREE.Vector3());
+      group.scale.setScalar(s);
+      group.position.copy(c).multiplyScalar(-s);
+      group.updateMatrixWorld(true);
+      return group;
+    }
+
+    function createPartMesh(recipe, status) {
+      const group = new THREE.Group();
+      const model = partModels[recipe];
+      if (model) {
+        const clone = model.clone();
+        if (status === "NOK") tintNOK(clone);
+        group.add(clone);
+      } else {
+        (partProcedural[recipe] || partProcedural.PCB_500)(group);
+      }
+      group.traverse(o => { o.castShadow = true; o.receiveShadow = true; });
+      return group;
+    }
+
+    // Load GLB models if present; otherwise keep procedural fallback
+    (async () => {
+      const loaded = [];
+      if (await tryLoadModel(MODEL_FILES.conveyor, root => {
+        scene.remove(convProc);
+        scene.add(root);
+      })) loaded.push(MODEL_FILES.conveyor);
+
+      if (await tryLoadModel(MODEL_FILES.gantry, root => {
+        scene.remove(gantryProc);
+        scene.add(root);
+      })) loaded.push(MODEL_FILES.gantry);
+
+      if (await tryLoadModel(MODEL_FILES.pusher, root => {
+        scene.remove(pusherProc);
+        scene.add(root);
+      })) loaded.push(MODEL_FILES.pusher);
+
+      const partMap = { CAST_100: MODEL_FILES.part_cast, PACK_200: MODEL_FILES.part_vial, PCB_500: MODEL_FILES.part_pcb };
+      for (const key of Object.keys(partMap)) {
+        if (await tryLoadModel(partMap[key], root => {
+          partModels[key] = fitPart(root, 0.45);
+        })) loaded.push(partMap[key]);
+      }
+
+      const hud = document.getElementById('hudModels');
+      if (hud) hud.textContent = loaded.length ? loaded.join(', ') : 'procedural (sin .glb)';
+    })();
+
+    let liveState = null;
+
+    async function pollState() {
+      try {
+        const res = await fetch('/api/state');
+        liveState = await res.json();
+        const conv = liveState.udts.UDT_ConveyorAxis;
+        const cam = liveState.udts.UDT_VisionCamera;
+        const batch = liveState.udts.UDT_ProductionBatch;
+
+        document.getElementById('hudRecipe').textContent = batch.Active_Recipe;
+        document.getElementById('hudEncoder').textContent = conv.Encoder_mm.toFixed(0);
+        document.getElementById('hudSpeed').textContent = conv.Actual_PPM.toFixed(0);
+        document.getElementById('hudFifo').textContent = conv.FIFO_Queue_Depth;
+        document.getElementById('hudEdgeMs').textContent = cam.Last_Edge_Latency_ms.toFixed(1) + ' ms';
+        document.getElementById('hudCloudMs').textContent = cam.Last_Cloud_Latency_ms.toFixed(0) + ' ms';
+        document.getElementById('hudSerial').textContent = cam.Last_Serial;
+
+        const stEl = document.getElementById('hudStatus');
+        stEl.textContent = cam.Last_Status + ' (' + cam.Last_Defect_Class + ')';
+        stEl.className = 'hud-badge ' + (cam.Last_Status === 'OK' ? 'ok' : 'nok');
+
+        if (cam.Last_Serial !== lastKnownSerial) {
+          lastKnownSerial = cam.Last_Serial;
+          flashIntensity = 3.2;
+        }
+      } catch (e) {}
+    }
+
+    setInterval(pollState, 350);
+    pollState();
+
+    // Post-processing (bloom); fallback to plain render if unsupported
+    let composer = null;
+    try {
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.42, 0.55, 0.68);
+      composer.addPass(bloom);
+      composer.addPass(new OutputPass());
+    } catch (e) {
+      composer = null;
+    }
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      controls.update();
+
+      // Animate conveyor belt stripes
+      const running = liveState?.udts?.UDT_ConveyorAxis?.Running_FB ?? true;
+      const beltSpeed = running ? 1.4 : 0.0;
+      stripes.forEach(s => {
+        s.position.x += beltSpeed * dt;
+        if (s.position.x > 3.4) s.position.x -= 6.8;
+      });
+
+      // Camera flash decay
+      if (flashIntensity > 0.25) {
+        flashIntensity = Math.max(0.2, flashIntensity - dt * 7.5);
+        flashLight.intensity = flashIntensity;
+        ringMat.color.setHex(flashIntensity > 1.2 ? 0xffffff : 0x38bdf8);
+        glowMat.emissiveIntensity = flashIntensity > 1.2 ? 4.5 : 0.35;
+        beaconMat.emissiveIntensity = flashIntensity > 1.2 ? 6 : 1.6;
+      }
+
+      // Pneumatic reject solenoid extension
+      const solenoidActive = liveState?.udts?.UDT_RejectActuator?.Solenoid_Active ?? false;
+      const targetZ = solenoidActive ? 0.55 : 0.0;
+      pistonRod.position.z += (0.36 + targetZ - pistonRod.position.z) * 0.25;
+      pusherPlate.position.z = pistonRod.position.z + 0.4;
+
+      // Sync FIFO queue parts in 3D space (pos_mm 0..1400 -> x -3.2..+3.2)
+      const fifo = liveState?.fifo_queue || [];
+      const activeSerials = new Set();
+      fifo.forEach(item => {
+        activeSerials.add(item.serial_number);
+        let mesh = partMeshes.get(item.serial_number);
+        if (!mesh) {
+          mesh = createPartMesh(item.product_recipe, item.edge_status);
+          scene.add(mesh);
+          partMeshes.set(item.serial_number, mesh);
+        }
+        const targetX = -3.1 + ((item.pos_mm - 100.0) / 1300.0) * 6.4;
+        mesh.position.x += (targetX - mesh.position.x) * 0.25;
+        mesh.position.y = 1.03;
+        if (item.actuated && item.plc_action !== 'PASS_CONVEYOR') {
+          mesh.position.z += (0.95 - mesh.position.z) * 0.22;
+          mesh.position.y = Math.max(0.55, mesh.position.y - 0.08);
+        } else {
+          mesh.position.z = 0;
+        }
+        mesh.rotation.y += dt * 0.6;
+      });
+
+      for (const [sn, mesh] of partMeshes.entries()) {
+        if (!activeSerials.has(sn)) {
+          scene.remove(mesh);
+          partMeshes.delete(sn);
+        }
+      }
+
+      if (composer) composer.render();
+      else renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
