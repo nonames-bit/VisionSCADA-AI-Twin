@@ -81,6 +81,24 @@
       b.style.display = 'block';
       b.textContent += (b.textContent ? '\n' : '') + (e.message || e);
     });
+    // If the 3D module never starts (opened as file://, old browser, vendor files missing), explain why
+    function loadingHint(msg) {
+      const l = document.getElementById('loading');
+      if (l) l.innerHTML = '<div style="max-width:560px;text-align:center;line-height:1.6">' + msg + '</div>';
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      if (location.protocol === 'file:') {
+        loadingHint('Esta escena no se puede abrir con doble clic (file://).<br>Arranca <b>python server.py</b> y abre <b>http://127.0.0.1:8020/cell3d</b>.');
+        return;
+      }
+      if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
+        loadingHint('Este navegador no soporta import maps (WebGL moderno).<br>Usa Chrome, Edge o Firefox actualizados.');
+        return;
+      }
+      setTimeout(() => {
+        if (!window.__cell3d) loadingHint('La escena no ha arrancado.<br>Comprueba que <b>/static/vendor/three/</b> existe y reinicia <b>python server.py</b>.<br>Abre la consola (F12) para ver el error.');
+      }, 20000);
+    });
   </script>
 </head>
 <body>
