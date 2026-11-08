@@ -296,7 +296,8 @@ def mask_bbox(mask_bytes: bytes, size: Tuple[int, int], label: str, out_size: in
 def visa_jobs(limit: Optional[int]) -> List[Tuple[str, callable]]:
     rows = list(csv.DictReader(io.StringIO(fetch(hf_raw(VISA_REPO, "capsules/image_anno.csv")).decode("utf-8-sig"))))
     ok = [r for r in rows if r.get("label") == "normal"]
-    bad = [r for r in rows if r.get("label") == "anomaly"]
+    # anomalous rows carry the defect type as label (bubble, crack, ...), not "anomaly"
+    bad = [r for r in rows if r.get("label") and r["label"] != "normal"]
     if limit:
         ok, bad = ok[:limit], bad[:limit]
 
