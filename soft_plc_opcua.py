@@ -135,8 +135,8 @@ class SoftPLCController:
                 "Last_Edge_Latency_ms": 14.2,
                 "Last_Cloud_Latency_ms": 820.0,
                 "Cloud_Queue_Pending": 0,
-                "Edge_Model_Version": "v1.0.0",
-                "Shadow_Model_Version": "v1.1.0-shadow",
+                "Edge_Model_Version": "v1",
+                "Shadow_Model_Version": "v2",
                 "Shadow_Status": "OK",
                 "Shadow_Defect_Class": "OK",
                 "Shadow_Agreement_Pct": 100.0,
@@ -371,7 +371,7 @@ class SoftPLCController:
             mh["Infeed_Count"] = mh["Infeed_Capacity"]
         mh["AGV_Swaps_Total"] += 1
 
-    def _step_agv(self, dt: float, running: bool):
+    def _step_agv(self, dt: float, running: bool = False):
         """AGV tote logistics: dock -> station -> swap totes -> dock."""
         mh = self.udts["UDT_MaterialHandling"]
         rej = self.udts["UDT_RejectActuator"]
