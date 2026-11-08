@@ -189,10 +189,11 @@ class VisionTwinRuntime:
         classes = RECIPES[recipe]["classes"]
         if self.plc.scenario_bad_supplier_lot:
             # Scenario 1: Supplier B sends defective batch (~58% defect rate!)
-            defect_prob = 0.58
+            defect_prob = 0.65
             supplier_map = {"CAST_100": (2, "SUP-STR-02"), "PACK_200": (4, "SUP-OSK-04"), "PCB_300": (5, "SUP-SZX-05")}
         else:
-            defect_prob = 0.08
+            # Baseline natural industrial defect rate
+            defect_prob = 0.12
             supplier_map = {"CAST_100": (1, "SUP-MTY-01"), "PACK_200": (3, "SUP-DET-03"), "PCB_300": (6, "SUP-GDL-06")}
 
         sup_id, sup_code = supplier_map.get(recipe, (1, "SUP-MTY-01"))
@@ -245,7 +246,7 @@ class VisionTwinRuntime:
         result["supplier_code"] = supplier_code
         result["batch_code"] = batch_code
 
-        # Write the verdict into the FIFO slot of the part at the camera (x = 300 mm)
+        # Write the verdict into the FIFO slot of the part at the camera
         self.plc.register_inspection(
             serial_number=serial_no,
             product_recipe=recipe,
@@ -623,9 +624,12 @@ app.include_router(mlops_api.router)
 
 async def plc_and_opcua_loop():
     while True:
-        runtime.plc.step_scan(on_camera_trigger_cb=runtime._execute_single_camera_inspection)
-        runtime.plc.udts["UDT_VisionCamera"]["Cloud_Queue_Pending"] = len(runtime.cloud_auditor.queue)
-        await runtime.opcua.sync_cycle()
+        try:
+            runtime.plc.step_scan(on_camera_trigger_cb=runtime._execute_single_camera_inspection)
+            runtime.plc.udts["UDT_VisionCamera"]["Cloud_Queue_Pending"] = len(runtime.cloud_auditor.queue)
+            await runtime.opcua.sync_cycle()
+        except Exception as e:
+            logger.error("Error in Soft-PLC scan cycle: %s", e, exc_info=True)
         await asyncio.sleep(0.1)
 
 
