@@ -34,6 +34,24 @@ RECIPES = {
         "label_source": "DeepPCB bounding-box annotations (1..6), patches cropped around each defect",
         "nominal_ppm": 35,
     },
+    "CAPS_400": {
+        "name": "Cápsulas en blíster (VisA capsules, Amazon, CC BY 4.0)",
+        "classes": ["OK", "Capsule_Defect"],
+        "label_source": "VisA image_anno.csv normal/anomaly (no sub-types); boxes from the pixel masks",
+        "nominal_ppm": 50,
+    },
+    "STEEL_600": {
+        "name": "Chapa de acero laminado en caliente (NEU-DET, 6 defectos reales)",
+        "classes": ["OK", "Crazing", "Inclusion", "Patches", "Pitted_Surface", "Rolled_In_Scale", "Scratches"],
+        "label_source": "NEU-DET VOC boxes (6 types); OK = 64 px crops outside every annotated box (NEU has no defect-free images)",
+        "nominal_ppm": 30,
+    },
+    "SCREW_700": {
+        "name": "Tornillo en nido de fijación (MVTec AD screw, CC BY-NC-SA 4.0, no comercial)",
+        "classes": ["OK", "Manipulated_Front", "Scratch_Head", "Scratch_Neck", "Thread_Side", "Thread_Top"],
+        "label_source": "MVTec AD screw test folders (5 real defect types) + train/test good; boxes from the ground-truth masks",
+        "nominal_ppm": 55,
+    },
 }
 
 # DeepPCB annotation type id -> class name
@@ -45,6 +63,9 @@ LEGACY_CLASS_MAP = {
     "PACK_200": {"OK": "OK", "Neck_Crack": "Pill_Defect", "Liquid_Contamination": "Pill_Defect", "Seal_Deformation": "Pill_Defect"},
     # Legacy PCB defect names were assigned with idx % 3 (not real) -> only OK is migrated.
     "PCB_300": {"OK": "OK"},
+    "CAPS_400": {"OK": "OK"},
+    "STEEL_600": {"OK": "OK"},
+    "SCREW_700": {"OK": "OK"},
 }
 
 FEATURE_NAMES = [
