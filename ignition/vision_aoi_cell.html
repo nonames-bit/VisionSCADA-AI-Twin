@@ -1893,6 +1893,11 @@
     // =====================================================================
     const beltParts = new Map();       // key: track_id (robot-fed PLC) or serial_number (legacy)
     const pendingDrops = [];           // parts the robot released that the PLC has not reported yet
+    // FIFO keys whose physical event (push or drop) already happened in the scene. The PLC keeps
+    // the item in its FIFO a little longer (poll latency, rejects stay tracked until the outfeed),
+    // and without this the next poll would re-create the part on the belt and fire the pusher again.
+    const handledKeys = new Map();
+    const simStats = { created: 0, handedOver: 0, pushes: 0, okDrops: 0 };
     let pusherKick = -1e9;
     let plateFaceZ = -1;
     const PUSH_STROKE_S = 0.18;
@@ -2001,6 +2006,7 @@
       mesh.position.set(mmToX(item.pos_mm), BELT_TOP, 0);
       scene.add(mesh);
       const p = { mesh, marker: null, recipe, status: 'PENDING', mode: 'belt' };
+      simStats.created++;
       beltParts.set(key, p);
       return p;
     }
@@ -2019,20 +2025,31 @@
       for (let i = pendingDrops.length - 1; i >= 0; i--) {
         const d = pendingDrops[i];
         d.mesh.position.x += speed * MM_TO_UNITS * dt;
-        if (now - d.t > 3000) { scene.remove(d.mesh); pendingDrops.splice(i, 1); }
+        if (now - d.t > 6000) { scene.remove(d.mesh); pendingDrops.splice(i, 1); }
       }
 
       fifo.forEach(item => {
         const key = item.track_id || item.serial_number;
         if (!key) return;
         seen.add(key);
+        if (handledKeys.has(key)) return;   // already pushed / dropped in the scene
         let p = beltParts.get(key);
         if (!p) {
           if (item.actuated && item.plc_action && item.plc_action !== 'PASS_CONVEYOR') return; // already rejected before page load
-          if (pendingDrops.length && item.pos_mm < 250 && !item.actuated) {
+          if (pendingDrops.length && item.pos_mm < 700 && !item.actuated) {
             const d = pendingDrops.shift();
             p = { mesh: d.mesh, marker: null, recipe: d.recipe, status: 'PENDING', mode: 'belt' };
             beltParts.set(key, p);
+          } else if (robotCarry && item.pos_mm < 700 && !item.actuated) {
+            // the PLC already placed it but the arm in the scene is still lowering it: hand it over
+            scene.attach(robotCarry);
+            robotCarry.position.set(mmToX(item.pos_mm), BELT_TOP, 0);
+            robotCarry.rotation.set(0, robotCarry.rotation.y, 0);
+            p = { mesh: robotCarry, marker: null, recipe: robotCarry.userData.recipe, status: 'PENDING', mode: 'belt' };
+            beltParts.set(key, p);
+            robotCarry = null;
+            robotHandedOver = true;
+            simStats.handedOver++;
           } else {
             p = newBeltPart(item, key);
           }
@@ -2071,6 +2088,8 @@
         const isReject = p.action === 'REJECT_PNEUMATIC' || p.action === 'REJECT_WATCHDOG';
         if (isReject && (p.mesh.position.x >= PUSHER_X || p.plcActuated)) {
           p.mesh.position.x = Math.min(p.mesh.position.x, PUSHER_X + 0.05);
+          handledKeys.set(key, now);
+          simStats.pushes++;
           pusherKick = now;
           const x = p.mesh.position.x;
           flightIntoTote(p, 'REJECT', [
@@ -2079,6 +2098,8 @@
             { pos: new THREE.Vector3(x, CHUTE_Y1 + 0.02, CHUTE_Z1), dur: 0.35, ease: easeIn, tilt: chuteAng }
           ]);
         } else if (!isReject && p.mesh.position.x >= BELT_END_X) {
+          handledKeys.set(key, now);
+          simStats.okDrops++;
           flightIntoTote(p, 'OK', [
             { pos: new THREE.Vector3(BELT_HALF_LEN + 0.42, BELT_TOP - 0.25, 0), dur: 0.22, ease: easeIn, tilt: 0.45, tiltAxis: 'z' }
           ]);
@@ -2114,6 +2135,8 @@
         }
       }
 
+      for (const [key, t] of handledKeys) if (!seen.has(key) && now - t > 5000) handledKeys.delete(key);
+
       // Tote contents follow the PLC counters (parts in flight are already counted by the PLC)
       const recipe = activeRecipe();
       if (rej && typeof rej.Bin_Count === 'number') syncTote(stations.REJECT.tote, rej.Bin_Count, recipe, inflightTo('REJECT'), now);
@@ -2138,6 +2161,8 @@
     // ---- Robot pose from the PLC cycle ----
     let robotShownPct = 0;
     let robotCarry = null;
+    let robotPicksSeen = 0;
+    let robotHandedOver = false;   // the part was handed to the belt before the arm released it
     const robotPickTarget = new THREE.Vector3();
     const _tip = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
     const ROBOT_SEGS = [
@@ -2162,6 +2187,10 @@
       }
       // monotonic within a cycle (poll corrections never move the arm backwards)
       if (pct < robotShownPct && robotShownPct - pct < 50) pct = robotShownPct;
+      // the PLC finished the place between two polls (only a real pick counts, not a stop/reset)
+      const picks = mh?.Robot_Picks_Total ?? 0;
+      const cycleWrapped = pct < robotShownPct && picks > robotPicksSeen;
+      robotPicksSeen = picks;
       robotShownPct = pct;
 
       const recipe = activeRecipe();
@@ -2187,13 +2216,14 @@
 
       // vacuum gripper: pick at 45 %, release at 95 %
       const holding = mh && pct >= 45 && pct < 95;
-      if (holding && !robotCarry) {
+      if (!holding) robotHandedOver = false;
+      if (holding && !robotCarry && !robotHandedOver) {
         robotCarry = createPartMesh(recipe);
         robotCarry.userData.recipe = recipe;
         robotCarry.position.set(0, -ph, 0);
         robotTipNode.add(robotCarry);
       } else if (!holding && robotCarry) {
-        if (pct >= 95) {
+        if (pct >= 95 || cycleWrapped) {
           scene.attach(robotCarry);
           robotCarry.position.set(mmToX(0), BELT_TOP, 0);
           robotCarry.rotation.set(0, robotCarry.rotation.y, 0);
@@ -2373,6 +2403,7 @@
     let fpsFrames = 0, fpsT0 = performance.now(), slowWindows = 0;
     let firstFrame = true;
 
+    const NO_RENDER = /(^|[#&])norender\b/.test(location.hash);   // headless kinematics tests only
     function animate() {
       requestAnimationFrame(animate);
       const dt = Math.min(0.05, clock.getDelta());
@@ -2419,7 +2450,7 @@
       updateCountEyes(now);
       updateRobot(dt, now);
       updateParts(dt, now);
-      composer.render();
+      if (!NO_RENDER) composer.render();
 
       if (firstFrame) {
         firstFrame = false;
@@ -2450,7 +2481,8 @@
     // Hook for automated screenshots / debugging
     window.__cell3d = { setQuality: q => { userChoseQuality = true; applyQuality(q); }, camera, controls, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, progs: renderer.info.programs.length }),
       parts: () => [...beltParts.values()].map(p => ({ x: +p.mesh.position.x.toFixed(3), z: +p.mesh.position.z.toFixed(3), mode: p.mode, action: p.action || '' })),
-      pusher: () => ({ ext: +pusherExt.toFixed(2), plateZ: +plateFaceZ.toFixed(3) }) };
+      pusher: () => ({ ext: +pusherExt.toFixed(2), plateZ: +plateFaceZ.toFixed(3) }),
+      stats: () => ({ ...simStats }) };
   </script>
 </body>
 </html>
