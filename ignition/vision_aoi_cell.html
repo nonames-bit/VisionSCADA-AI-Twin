@@ -2006,9 +2006,32 @@
     }
     // Kitted parts in the infeed tote (neat 3 × 2 × 2)
     const INFEED_VISIBLE = 12;
+    // Flat parts (steel coupons, blister trays, screw nests) sit on a raised kitting insert so the
+    // stack top stays near the rim and the robot is visibly picking real parts, not reaching into a deep empty tote.
+    function infeedLift(recipe) {
+      const stackH = 2 * (partHeight(recipe) + 0.01);
+      return Math.max(0, TOTE_H - 0.1 - stackH);
+    }
+    const insertMat = new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.6, metalness: 0.2 });
+    function setInfeedInsert(tote, recipe) {
+      const lift = infeedLift(recipe);
+      let ins = tote.userData.insert;
+      if (!ins) {
+        ins = new THREE.Group();
+        const plate = box(0.84, 0.012, 0.74, insertMat, 0.004); ins.add(plate);
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+          const post = box(0.03, 1, 0.03, insertMat); post.position.set(sx * 0.38, -0.5, sz * 0.33); post.userData.post = true; ins.add(post);
+        });
+        shadowSet(ins);
+        tote.add(ins); tote.userData.insert = ins;
+      }
+      ins.visible = lift > 0.02;
+      ins.position.y = 0.03 + lift - 0.008;
+      ins.children.forEach(c => { if (c.userData.post) { c.scale.y = Math.max(0.01, lift); c.position.y = -lift / 2; } });
+    }
     function infeedSlotLocal(n, recipe) {
       const layer = Math.floor(n / 6), k = n % 6;
-      return new THREE.Vector3(((k % 3) - 1) * 0.27, 0.03 + layer * (partHeight(recipe) + 0.01), (Math.floor(k / 3) - 0.5) * 0.36);
+      return new THREE.Vector3(((k % 3) - 1) * 0.27, 0.03 + infeedLift(recipe) + layer * (partHeight(recipe) + 0.01), (Math.floor(k / 3) - 0.5) * 0.36);
     }
     function addPartToTote(tote, recipe) {
       const kind = tote.userData.kind;
@@ -2035,6 +2058,7 @@
       if (tote.userData.kind === 'INFEED' && tote.userData.recipe !== recipe) {
         while (parts.length) tote.remove(parts.pop());
         tote.userData.recipe = recipe;
+        setInfeedInsert(tote, recipe);
       }
       count = Math.max(0, Math.floor(count));
       // a part that just landed may be ahead of the photo-eye count by one poll
@@ -2045,6 +2069,7 @@
     }
     function fillInfeed(tote, recipe) {
       tote.userData.recipe = recipe;
+      setInfeedInsert(tote, recipe);
       for (let i = 0; i < INFEED_VISIBLE; i++) addPartToTote(tote, recipe);
     }
 
@@ -2280,7 +2305,7 @@
       if (pct < 28 || !robotCarry && pct < 40) {
         const parts = tote.userData.parts;
         if (parts.length) parts[parts.length - 1].getWorldPosition(robotPickTarget);
-        else robotPickTarget.set(tote.position.x, tote.position.y + 0.03, tote.position.z);
+        else robotPickTarget.set(tote.position.x, tote.position.y + 0.03 + infeedLift(recipe), tote.position.z);
         robotPickTarget.y += ph;
       }
       const P = {
@@ -2353,6 +2378,13 @@
         if (!agvLoad.old) agvLoad.old = st.tote;
         st.tote = agvLoad.fresh;
         agvLoad.fresh = null;
+      }
+      // Any tote that is not being transferred right now sits on its station. A late poll can jump
+      // from SWAP (tote half-way between AGV and stand) straight to RETURN, which used to leave it
+      // hanging in the air.
+      for (const s of Object.values(stations)) {
+        if (state === 'SWAP' && s === st) continue;
+        s.tote.position.set(s.bin.x, STAND_H, s.bin.z);
       }
       if (state === 'PARKED') {
         if (agvLoad.old) { scene.remove(agvLoad.old); agvLoad.old = null; }
