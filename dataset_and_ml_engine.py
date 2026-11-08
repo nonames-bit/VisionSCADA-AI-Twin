@@ -41,7 +41,20 @@ _SYNTHETIC_FAMILY = {
         "Short": ["Copper_Short"], "Copper": ["Copper_Short"],
         "Mousebite": ["Mousebite_Spur"], "Spur": ["Mousebite_Spur"],
     },
+    # New recipes reuse the closest existing renderer (fallback only until real images exist)
+    "CAPS_400": {"Capsule_Defect": ["Neck_Crack", "Liquid_Contamination", "Seal_Deformation"]},
+    "STEEL_600": {
+        "Crazing": ["Shrinkage_Crack"], "Inclusion": ["Porosity_Pinhole"], "Patches": ["Porosity_Pinhole"],
+        "Pitted_Surface": ["Porosity_Pinhole"], "Rolled_In_Scale": ["Flash_Burr"], "Scratches": ["Shrinkage_Crack"],
+    },
+    "SCREW_700": {
+        "Manipulated_Front": ["Flash_Burr"], "Scratch_Head": ["Shrinkage_Crack"], "Scratch_Neck": ["Shrinkage_Crack"],
+        "Thread_Side": ["Porosity_Pinhole"], "Thread_Top": ["Porosity_Pinhole"],
+    },
 }
+# Which procedural renderer draws each recipe's fallback images
+_SYNTHETIC_RENDERER = {"CAST_100": "casting", "PACK_200": "pharma", "PCB_300": "pcb",
+                       "CAPS_400": "pharma", "STEEL_600": "casting", "SCREW_700": "casting"}
 
 
 def ensure_dirs():
@@ -315,9 +328,10 @@ def generate_heatmap_and_overlay(
 def render_synthetic_sample(recipe: str, label: str, rng: random.Random, degrade_lighting: bool = False) -> Tuple[Image.Image, List[Dict[str, Any]]]:
     """Procedural fallback image for an honest label (used only when real images are missing)."""
     family = "OK" if label == "OK" else rng.choice(_SYNTHETIC_FAMILY[recipe][label])
-    if recipe == "CAST_100":
+    renderer = _SYNTHETIC_RENDERER.get(recipe, "pcb")
+    if renderer == "casting":
         img, boxes = _render_casting_impeller(rng, family, degrade_lighting)
-    elif recipe == "PACK_200":
+    elif renderer == "pharma":
         img, boxes = _render_pharma_pack(rng, family, degrade_lighting)
     else:
         img, boxes = _render_pcb_board(rng, family, degrade_lighting)

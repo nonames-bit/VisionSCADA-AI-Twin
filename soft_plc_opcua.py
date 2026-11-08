@@ -24,8 +24,16 @@ logger = logging.getLogger("SoftPLC_OPCUA")
 
 OPCUA_PORT = int(os.getenv("OPCUA_PORT", "48410"))
 OPCUA_ENDPOINT = os.getenv("OPCUA_ENDPOINT", f"opc.tcp://0.0.0.0:{OPCUA_PORT}/brewscada/server/")
-RECIPE_BY_IDX = {0: "CAST_100", 1: "PACK_200", 2: "PCB_300"}
-IDX_BY_RECIPE = {"CAST_100": 0, "PACK_200": 1, "PCB_300": 2}
+RECIPE_BY_IDX = {0: "CAST_100", 1: "PACK_200", 2: "PCB_300", 3: "CAPS_400", 4: "STEEL_600", 5: "SCREW_700"}
+IDX_BY_RECIPE = {v: k for k, v in RECIPE_BY_IDX.items()}
+RECIPE_LOTS = {
+    "CAST_100": ("LOT-CAST-2026-01", "SUP-MTY-01", "Fundiciones del Norte S.A. (Monterrey, MX)"),
+    "PACK_200": ("LOT-PACK-2026-02", "SUP-DET-03", "Great Lakes Glass & Pharma (Detroit, US)"),
+    "PCB_300": ("LOT-PCB-2026-03", "SUP-SZX-05", "Shenzhen MicroCircuits SMT (Shenzhen, CN)"),
+    "CAPS_400": ("LOT-CAPS-2026-04", "SUP-BCN-07", "Iberia Softgel Pharma S.L. (Barcelona, ES)"),
+    "STEEL_600": ("LOT-STEEL-2026-05", "SUP-MTY-09", "Aceros Laminados del Norte (Monterrey, MX)"),
+    "SCREW_700": ("LOT-SCREW-2026-06", "SUP-QRO-11", "Bajío Fasteners S.A. (Querétaro, MX)"),
+}
 
 # Writable Operator / Engineer Setpoints (Bidirectional in Ignition Perspective)
 PLC_WRITABLE_TAGS = {
@@ -169,6 +177,8 @@ class SoftPLCController:
             "UDT_ProductionBatch": {
                 "Active_Recipe": "CAST_100",
                 "Recipe_Index": 0,
+                "Pending_Recipe": "",
+                "Changeover_Active": False,
                 "Batch_Code": "LOT-CAST-2026-01",
                 "Supplier_Code": "SUP-MTY-01",
                 "Supplier_Name": "Fundiciones del Norte S.A. (Monterrey, MX)",
@@ -240,15 +250,15 @@ class SoftPLCController:
             return {"ok": False, "error": str(e)}
 
         if udt_name == "UDT_ProductionBatch" and tag_name == "Active_Recipe":
-            if cast_val not in ("CAST_100", "PACK_200", "PCB_300"):
+            if cast_val not in IDX_BY_RECIPE:
                 return {"ok": False, "error": f"Unknown recipe {cast_val}"}
-            self._switch_recipe_context(cast_val)
+            self._request_recipe(cast_val)
             return {"ok": True, "udt": udt_name, "tag": tag_name, "value": cast_val}
 
         if udt_name == "UDT_ProductionBatch" and tag_name == "Recipe_Index":
-            cast_val = max(0, min(2, cast_val))
+            cast_val = max(0, min(len(RECIPE_BY_IDX) - 1, cast_val))
             recipe_code = RECIPE_BY_IDX[cast_val]
-            self._switch_recipe_context(recipe_code)
+            self._request_recipe(recipe_code)
             return {"ok": True, "udt": udt_name, "tag": tag_name, "value": cast_val}
 
         self.udts[udt_name][tag_name] = cast_val
@@ -285,21 +295,33 @@ class SoftPLCController:
 
         return {"ok": True, "udt": udt_name, "tag": tag_name, "value": cast_val}
 
+    def _request_recipe(self, recipe: str):
+        """Format change: stop feeding, let the belt empty, then switch recipe and load a fresh infeed tote."""
+        batch = self.udts["UDT_ProductionBatch"]
+        if recipe == batch["Active_Recipe"] and not batch["Changeover_Active"]:
+            return
+        if recipe == batch["Active_Recipe"]:
+            # changed their mind during the changeover: just resume
+            batch["Pending_Recipe"], batch["Changeover_Active"] = "", False
+            return
+        batch["Pending_Recipe"], batch["Changeover_Active"] = recipe, True
+        self._try_finish_changeover()
+
+    def _try_finish_changeover(self):
+        batch = self.udts["UDT_ProductionBatch"]
+        if not batch["Changeover_Active"] or self.fifo_queue or self.robot_holding:
+            return
+        self._switch_recipe_context(batch["Pending_Recipe"])
+        batch["Pending_Recipe"], batch["Changeover_Active"] = "", False
+        mh = self.udts["UDT_MaterialHandling"]
+        mh["Infeed_Count"] = mh["Infeed_Capacity"]   # operator loads a tote of the new product
+
     def _switch_recipe_context(self, recipe: str):
-        self.udts["UDT_ProductionBatch"]["Active_Recipe"] = recipe
-        self.udts["UDT_ProductionBatch"]["Recipe_Index"] = IDX_BY_RECIPE.get(recipe, 0)
-        if recipe == "CAST_100":
-            self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-CAST-2026-01"
-            self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-MTY-01"
-            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Fundiciones del Norte S.A. (Monterrey, MX)"
-        elif recipe == "PACK_200":
-            self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-PACK-2026-02"
-            self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-DET-03"
-            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Great Lakes Glass & Pharma (Detroit, US)"
-        else:
-            self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-PCB-2026-03"
-            self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-SZX-05"
-            self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Shenzhen MicroCircuits SMT (Shenzhen, CN)"
+        batch = self.udts["UDT_ProductionBatch"]
+        batch["Active_Recipe"] = recipe
+        batch["Recipe_Index"] = IDX_BY_RECIPE.get(recipe, 0)
+        lot, sup_code, sup_name = RECIPE_LOTS.get(recipe, RECIPE_LOTS["CAST_100"])
+        batch["Batch_Code"], batch["Supplier_Code"], batch["Supplier_Name"] = lot, sup_code, sup_name
 
     def register_inspection(
         self,
@@ -413,6 +435,9 @@ class SoftPLCController:
         infeed_swapping = mh["AGV_Target"] == "INFEED" and mh["AGV_State"] == "SWAP"
 
         if not self.robot_holding and pct == 0.0:
+            if self.udts["UDT_ProductionBatch"]["Changeover_Active"]:
+                mh["Robot_State"] = "CHANGEOVER"
+                return
             if mh["Infeed_Count"] <= 0 or infeed_swapping:
                 mh["Robot_State"] = "WAIT_PARTS"
                 return
@@ -565,6 +590,7 @@ class SoftPLCController:
                 remaining_fifo.append(item)
 
         self.fifo_queue = remaining_fifo
+        self._try_finish_changeover()
         pes["PE_Pusher_Blocked"] = any(abs(it["pos_mm"] - PE_PUSHER_POS_MM) <= PE_BLOCK_HALF_MM for it in self.fifo_queue)
         pes["PE_OKBin_Blocked"] = any(
             it.get("plc_action") == "PASS_CONVEYOR" and PE_OK_POS_MM - PE_BLOCK_HALF_MM <= it["pos_mm"] for it in self.fifo_queue

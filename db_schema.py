@@ -218,9 +218,8 @@ def init_database():
             """
         )
 
-        # Seed Suppliers if empty
-        cur.execute("SELECT COUNT(*) FROM suppliers")
-        if cur.fetchone()[0] == 0:
+        # Seed Suppliers (idempotent: new recipes add their suppliers to an existing database)
+        if True:
             suppliers_seed = [
                 ("SUP-MTY-01", "Fundiciones del Norte S.A.", "Monterrey", "Mexico", 25.6866, -100.3161, "CAST_100", 0.04),
                 ("SUP-STR-02", "Baden Precision Castings GmbH", "Stuttgart", "Germany", 48.7758, 9.1829, "CAST_100", 0.03),
@@ -228,6 +227,12 @@ def init_database():
                 ("SUP-OSK-04", "Kansai Sterile Packaging Co.", "Osaka", "Japan", 34.6937, 135.5023, "PACK_200", 0.025),
                 ("SUP-SZX-05", "Shenzhen MicroCircuits SMT", "Shenzhen", "China", 22.5431, 114.0579, "PCB_300", 0.045),
                 ("SUP-GDL-06", "Jalisco Silicon Valley PCB", "Guadalajara", "Mexico", 20.6597, -103.3496, "PCB_300", 0.038),
+                ("SUP-BCN-07", "Iberia Softgel Pharma S.L.", "Barcelona", "Spain", 41.3874, 2.1686, "CAPS_400", 0.03),
+                ("SUP-MUM-08", "Deccan Capsule Works", "Mumbai", "India", 19.0760, 72.8777, "CAPS_400", 0.045),
+                ("SUP-MTY-09", "Aceros Laminados del Norte", "Monterrey", "Mexico", 25.6866, -100.3161, "STEEL_600", 0.05),
+                ("SUP-TSN-10", "Tangshan Hot Strip Mill", "Tangshan", "China", 39.6309, 118.1802, "STEEL_600", 0.06),
+                ("SUP-QRO-11", "Bajío Fasteners S.A.", "Querétaro", "Mexico", 20.5888, -100.3899, "SCREW_700", 0.03),
+                ("SUP-TPE-12", "Formosa Precision Screw Co.", "Taichung", "Taiwan", 24.1477, 120.6736, "SCREW_700", 0.04),
             ]
             for s in suppliers_seed:
                 cur.execute(
@@ -239,13 +244,15 @@ def init_database():
                     s,
                 )
 
-        # Seed Active Batches for the 3 Recipes if empty
-        cur.execute("SELECT COUNT(*) FROM production_batches")
-        if cur.fetchone()[0] == 0:
+        # Seed one active batch per recipe (idempotent)
+        if True:
             batches_seed = [
                 ("LOT-CAST-2026-01", "CAST_100", "Impulsor Bomba Centrífuga Hierro Gris", 1, 1000),
                 ("LOT-PACK-2026-02", "PACK_200", "Vial Farmacéutico & Cápsula Sellada MVTec", 3, 1200),
                 ("LOT-PCB-2026-03", "PCB_300", "Placa Controlador Industrial SMT 4-Capas", 5, 800),
+                ("LOT-CAPS-2026-04", "CAPS_400", "Cápsulas de gelatina en blíster (VisA)", 7, 1500),
+                ("LOT-STEEL-2026-05", "STEEL_600", "Chapa laminada en caliente Q235 (NEU-DET)", 9, 600),
+                ("LOT-SCREW-2026-06", "SCREW_700", "Tornillo Allen M6 en nido (MVTec AD)", 11, 2000),
             ]
             for b in batches_seed:
                 cur.execute(

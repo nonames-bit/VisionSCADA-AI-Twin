@@ -37,6 +37,18 @@ SIM_DIAGNOSIS = {
     "Spur": "Espolón de cobre saliente en la pista.",
     "Copper": "Cobre residual no deseado.",
     "Pin_Hole": "Microperforación en área de cobre.",
+    "Capsule_Defect": "Cápsula con defecto (grieta, abolladura, mancha o cápsula mal formada en el blíster).",
+    "Crazing": "Agrietamiento fino en red sobre la superficie laminada (crazing).",
+    "Inclusion": "Inclusión no metálica atrapada en la chapa durante la laminación.",
+    "Patches": "Parches / manchas de óxido o cascarilla en la superficie.",
+    "Pitted_Surface": "Superficie picada (pitting) por corrosión o cascarilla desprendida.",
+    "Rolled_In_Scale": "Cascarilla incrustada por el rodillo de laminación (rolled-in scale).",
+    "Scratches": "Rayas longitudinales en el sentido de laminación.",
+    "Manipulated_Front": "Punta del tornillo deformada o manipulada.",
+    "Scratch_Head": "Rayadura en la cabeza del tornillo.",
+    "Scratch_Neck": "Rayadura en el cuello (zona sin rosca) del tornillo.",
+    "Thread_Side": "Rosca dañada en el flanco lateral.",
+    "Thread_Top": "Rosca dañada en la cresta / parte superior.",
 }
 
 

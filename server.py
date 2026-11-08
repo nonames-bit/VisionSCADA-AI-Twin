@@ -190,10 +190,12 @@ class VisionTwinRuntime:
         if self.plc.scenario_bad_supplier_lot:
             # Scenario 1: Supplier B sends defective batch (~58% defect rate!)
             defect_prob = 0.58
-            supplier_map = {"CAST_100": (2, "SUP-STR-02"), "PACK_200": (4, "SUP-OSK-04"), "PCB_300": (5, "SUP-SZX-05")}
+            supplier_map = {"CAST_100": (2, "SUP-STR-02"), "PACK_200": (4, "SUP-OSK-04"), "PCB_300": (5, "SUP-SZX-05"),
+                            "CAPS_400": (8, "SUP-MUM-08"), "STEEL_600": (10, "SUP-TSN-10"), "SCREW_700": (12, "SUP-TPE-12")}
         else:
             defect_prob = 0.08
-            supplier_map = {"CAST_100": (1, "SUP-MTY-01"), "PACK_200": (3, "SUP-DET-03"), "PCB_300": (6, "SUP-GDL-06")}
+            supplier_map = {"CAST_100": (1, "SUP-MTY-01"), "PACK_200": (3, "SUP-DET-03"), "PCB_300": (6, "SUP-GDL-06"),
+                            "CAPS_400": (7, "SUP-BCN-07"), "STEEL_600": (9, "SUP-MTY-09"), "SCREW_700": (11, "SUP-QRO-11")}
 
         sup_id, sup_code = supplier_map.get(recipe, (1, "SUP-MTY-01"))
         if random.random() < defect_prob:
@@ -347,7 +349,7 @@ class VisionTwinRuntime:
             )
 
         # Persist inspection to PostgreSQL
-        batch_id_map = {"CAST_100": 1, "PACK_200": 2, "PCB_300": 3}
+        batch_id_map = {"CAST_100": 1, "PACK_200": 2, "PCB_300": 3, "CAPS_400": 4, "STEEL_600": 5, "SCREW_700": 6}
         batch_id = batch_id_map.get(recipe, 1)
         try:
             conn = get_admin_conn()
