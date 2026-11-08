@@ -116,6 +116,14 @@
         Cola FIFO: <span id="hudFifo" style="color:#fbbf24;">0</span> pzas |
         Rechazo: <span id="hudBin" style="color:#f87171;">0/25</span>
       </div>
+      <div style="margin-top:2px; color:#94a3b8;">
+        Entrada: <span id="hudInfeed" style="color:#60a5fa;">--</span> |
+        OK: <span id="hudOk" style="color:#34d399;">--</span> |
+        Sensores B3/B4/B5: <span id="hudPE" style="color:#e2e8f0;">--</span> |
+        Robot: <span id="hudRobot" style="color:#e2e8f0;">--</span> |
+        AGV: <span id="hudAgv" style="color:#fbbf24;">--</span>
+        <span id="hudBlock" class="hud-badge nok" style="display:none;"></span>
+      </div>
       <div class="mini">Modelos 3D: <span id="hudModels">procedural</span></div>
     </div>
     <div class="hud-card">
@@ -159,8 +167,12 @@
     const PUSHER_X = 1.85;
     const MM_TO_UNITS = (PUSHER_X - CAMERA_X) / 800.0;   // 800 mm between camera and pusher
     const mmToX = mm => CAMERA_X + (mm - 300.0) * MM_TO_UNITS;
-    const REJECT_BIN = { x: PUSHER_X, z: 1.36, w: 0.95, h: 0.62, d: 0.82 };
-    const OK_BIN = { x: 4.12, z: 0.0, w: 0.82, h: 0.62, d: 1.1 };
+    // Totes sit on low roller stands so the AGV can swap them (roller top = AGV deck height)
+    const STAND_H = 0.24, TOTE_H = 0.42;
+    const REJECT_BIN = { x: PUSHER_X, z: 1.36, w: 0.9, h: TOTE_H, d: 0.8 };
+    const OK_BIN = { x: 4.12, z: 0.0, w: 0.9, h: TOTE_H, d: 0.8 };
+    const INFEED_BIN = { x: -3.85, z: 1.3, w: 0.9, h: TOTE_H, d: 0.8 };
+    const ROBOT_BASE = { x: -2.72, z: 1.1 };
 
     // =====================================================================
     // Renderer, scene, camera
@@ -437,6 +449,9 @@
       fenceMesh: new THREE.MeshStandardMaterial({ color: 0x3b4047, map: meshTex, alphaTest: 0.5, metalness: 0.6, roughness: 0.45, side: THREE.DoubleSide }),
       binRed: new THREE.MeshStandardMaterial({ color: 0xa8231c, metalness: 0.0, roughness: 0.55 }),
       binGreen: new THREE.MeshStandardMaterial({ color: 0x1f6e47, metalness: 0.0, roughness: 0.55 }),
+      binBlue: new THREE.MeshStandardMaterial({ color: 0x23508f, metalness: 0.0, roughness: 0.55 }),
+      robotPaint: new THREE.MeshPhysicalMaterial({ color: 0xd9661a, metalness: 0.0, roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.3 }),
+      agvBody: new THREE.MeshStandardMaterial({ color: 0xd7dade, metalness: 0.05, roughness: 0.45 }),
     };
     glassMats.push(M.polycarb);
 
@@ -1029,7 +1044,7 @@
     pusherProc.add(tube([new THREE.Vector3(0.0, PUSH_Y + 0.1, -1.18), new THREE.Vector3(0.12, PUSH_Y - 0.1, -1.3), new THREE.Vector3(0.2, 0.3, -1.4), new THREE.Vector3(0.25, 0.02, -1.5)], 0.007, M.puHose, 40));
     // Reject chute (stainless, inclined) towards the reject bin
     const CHUTE_Z0 = BELT_HALF_W + 0.08, CHUTE_Z1 = REJECT_BIN.z - 0.18;
-    const CHUTE_Y0 = BELT_TOP - 0.03, CHUTE_Y1 = REJECT_BIN.h + 0.1;
+    const CHUTE_Y0 = BELT_TOP - 0.03, CHUTE_Y1 = STAND_H + REJECT_BIN.h + 0.1;
     const chuteLen = Math.hypot(CHUTE_Z1 - CHUTE_Z0, CHUTE_Y0 - CHUTE_Y1);
     const chuteAng = Math.atan2(CHUTE_Y0 - CHUTE_Y1, CHUTE_Z1 - CHUTE_Z0);
     const chute = new THREE.Group();
@@ -1043,9 +1058,12 @@
     chute.position.set(0, (CHUTE_Y0 + CHUTE_Y1) / 2, (CHUTE_Z0 + CHUTE_Z1) / 2);
     chute.rotation.x = chuteAng;
     pusherProc.add(chute);
+    // Chute legs stand clear of the tote stand (AGV pulls the tote out underneath)
+    const CHUTE_LEG_Z = CHUTE_Z0 + 0.14;
+    const chuteLegH = CHUTE_Y0 - (CHUTE_LEG_Z - CHUTE_Z0) * Math.tan(chuteAng) - 0.03;
     [-1, 1].forEach(sx => {
-      const leg = profileBar(CHUTE_Y1 - 0.02, 'y', 0.035);
-      leg.position.set(sx * 0.36, (CHUTE_Y1 - 0.02) / 2, CHUTE_Z1 - 0.05);
+      const leg = profileBar(chuteLegH, 'y', 0.035);
+      leg.position.set(sx * 0.36, chuteLegH / 2, CHUTE_LEG_Z);
       pusherProc.add(leg);
     });
 
@@ -1053,7 +1071,7 @@
     // Totes (hollow) + signage
     // =====================================================================
     function tote(cfg, mat, label, labelColor) {
-      const { x, z, w, h, d } = cfg;
+      const { w, h, d } = cfg;
       const g = new THREE.Group();
       const t = 0.025;
       const bottom = box(w - 0.04, t, d - 0.04, mat, 0.01); bottom.position.y = t / 2 + 0.02;
@@ -1081,12 +1099,76 @@
       const sign = decal(plateTex(label, { w: 512, h: 160, size: 64, bg: '#f5f5f2', fg: labelColor, border: labelColor, borderW: 12 }), w * 0.6, w * 0.19);
       sign.position.set(0, h * 0.5, d / 2 + 0.014);
       g.add(sign);
-      g.position.set(x, 0, z);
+      return g;
+    }
+    // One template per tote type; every tote in the scene (stations, AGV, rack) is a clone
+    const TOTE_TYPES = {
+      REJECT: { mat: M.binRed, label: ['RECHAZO', 'REJECT · NOK'], color: '#b91c1c' },
+      OK: { mat: M.binGreen, label: ['OK', 'PASS'], color: '#166534' },
+      INFEED: { mat: M.binBlue, label: ['ENTRADA', 'INFEED · RAW'], color: '#1e3a8a' }
+    };
+    const toteTemplates = {};
+    function makeTote(kind) {
+      if (!toteTemplates[kind]) {
+        const tt = TOTE_TYPES[kind];
+        toteTemplates[kind] = tote(REJECT_BIN, tt.mat, tt.label, tt.color);
+        shadowSet(toteTemplates[kind]);
+      }
+      const g = toteTemplates[kind].clone();
+      g.userData = { kind, parts: [], recipe: null };
       scene.add(g);
       return g;
     }
-    tote(REJECT_BIN, M.binRed, ['RECHAZO', 'REJECT · NOK'], '#b91c1c');
-    tote(OK_BIN, M.binGreen, ['OK', 'PASS'], '#166534');
+
+    // Roller stands (tote docking stations)
+    const ROLLER_R = 0.026;
+    const rollerGeo = new THREE.CylinderGeometry(ROLLER_R, ROLLER_R, 1, 20);
+    rollerGeo.rotateZ(Math.PI / 2);
+    function rollerBed(len, width, mat = M.chrome) {
+      // rollers spin about x; the tote travels along z
+      const g = new THREE.Group();
+      const rollers = [];
+      const n = Math.max(3, Math.round(len / 0.1));
+      for (let i = 0; i < n; i++) {
+        const r = new THREE.Mesh(rollerGeo, mat);
+        r.scale.set(width, 1, 1);
+        r.position.set(0, -ROLLER_R, -len / 2 + (i + 0.5) * len / n);
+        g.add(r); rollers.push(r);
+      }
+      [-1, 1].forEach(sx => {
+        const rail = box(0.035, 0.07, len + 0.04, M.darkSteel, 0.004);
+        rail.position.set(sx * (width / 2 + 0.025), -0.03, 0);
+        g.add(rail);
+      });
+      g.userData.rollers = rollers;
+      return g;
+    }
+    const stations = {};
+    function makeStation(key, bin) {
+      const g = new THREE.Group();
+      const bed = rollerBed(bin.d + 0.04, bin.w + 0.02);
+      bed.position.y = STAND_H;
+      g.add(bed);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+        const leg = profileBar(STAND_H - 0.06, 'y', 0.04);
+        leg.position.set(sx * (bin.w / 2 + 0.02), (STAND_H - 0.06) / 2, sz * (bin.d / 2 - 0.02));
+        g.add(leg);
+      });
+      // end stop on the far side, open towards the AGV (+z)
+      const stop = box(bin.w * 0.6, 0.05, 0.03, M.yellow, 0.006);
+      stop.position.set(0, STAND_H + 0.02, -bin.d / 2 - 0.03);
+      g.add(stop);
+      g.position.set(bin.x, 0, bin.z);
+      shadowSet(g);
+      scene.add(g);
+      const st = { key, bin, group: g, rollers: bed.userData.rollers, tote: makeTote(key) };
+      st.tote.position.set(bin.x, STAND_H, bin.z);
+      stations[key] = st;
+      return st;
+    }
+    makeStation('REJECT', REJECT_BIN);
+    makeStation('OK', OK_BIN);
+    makeStation('INFEED', INFEED_BIN);
     const outLen = 0.42;
     const outChute = new THREE.Group();
     const outFloor = box(outLen, 0.008, 0.8, M.steel); outChute.add(outFloor);
@@ -1095,7 +1177,7 @@
     outChute.rotation.z = -0.45;
     scene.add(outChute);
 
-    [[REJECT_BIN.x - 0.85, REJECT_BIN.z + 0.75], [REJECT_BIN.x + 0.85, REJECT_BIN.z + 0.75]].forEach(([x, z]) => {
+    [[REJECT_BIN.x - 0.8, REJECT_BIN.z - 0.15], [REJECT_BIN.x + 0.8, REJECT_BIN.z - 0.15]].forEach(([x, z]) => {
       const pole = cyl(0.055, 0.055, 0.9, M.yellow, 24); pole.position.set(x, 0.45, z);
       const band = cyl(0.056, 0.056, 0.08, M.plasticBlack, 24); band.position.set(x, 0.72, z);
       const base = cyl(0.09, 0.09, 0.012, M.yellow, 24); base.position.set(x, 0.006, z);
@@ -1191,7 +1273,7 @@
     });
     aoTex.wrapS = aoTex.wrapT = THREE.ClampToEdgeWrapping;
     const aoDecals = [];
-    [[0, 0, 8.4, 2.0], [CAMERA_X, 0, 1.6, 2.2], [REJECT_BIN.x, REJECT_BIN.z, 1.3, 1.2], [OK_BIN.x, OK_BIN.z, 1.2, 1.5], [-3.9, -1.55, 1.2, 0.8]].forEach(([x, z, w, d]) => {
+    [[0, 0, 8.4, 2.0], [CAMERA_X, 0, 1.6, 2.2], [REJECT_BIN.x, REJECT_BIN.z, 1.3, 1.2], [OK_BIN.x, OK_BIN.z, 1.3, 1.2], [INFEED_BIN.x, INFEED_BIN.z, 1.3, 1.2], [ROBOT_BASE.x, ROBOT_BASE.z, 1.1, 1.1], [-3.9, -1.55, 1.2, 0.8]].forEach(([x, z, w, d]) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: aoTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
       m.rotation.x = -Math.PI / 2; m.position.set(x, 0.005, z); m.userData.noCast = true;
       scene.add(m); aoDecals.push(m);
@@ -1443,6 +1525,224 @@
     hall.traverse(o => { if (o.isMesh) o.castShadow = false; });
 
     // =====================================================================
+    // Counting photo-eyes: before the pusher, at the outfeed (OK tote) and across
+    // the reject chute exit (reject tote). LEDs / beams follow UDT_PhotoSensors.
+    // =====================================================================
+    const countEyes = {};
+    function makeCountEye(key, p0, p1, label) {
+      // p0: emitter/receiver side, p1: reflector side (world coords)
+      const g = new THREE.Group();
+      const dir = new THREE.Vector3().subVectors(p1, p0);
+      const len = dir.length();
+      const yaw = Math.atan2(dir.x, dir.z);
+      const body = box(0.035, 0.055, 0.03, M.paintGrey, 0.004);
+      const bracket = box(0.05, 0.012, 0.05, M.steel, 0.002); bracket.position.y = -0.034;
+      const lens = cyl(0.008, 0.008, 0.004, M.plasticBlack, 12, 'z'); lens.position.z = 0.016;
+      const ledMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x22c55e, emissiveIntensity: 1.5 });
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.0045, 8, 8), ledMat); led.position.set(0.01, 0.031, 0);
+      const head = new THREE.Group(); head.add(body, bracket, lens, led);
+      head.position.copy(p0); head.rotation.y = yaw; head.scale.setScalar(1.4); g.add(head);
+      const refl = box(0.03, 0.03, 0.006, new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.25, metalness: 0.2 }));
+      refl.position.copy(p1); refl.rotation.y = yaw; g.add(refl);
+      const beamMat = new THREE.MeshBasicMaterial({ color: 0xff3b2f, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
+      const beam = cyl(0.0025, 0.0025, len, beamMat, 6, 'z');
+      beam.position.addVectors(p0, p1).multiplyScalar(0.5); beam.rotation.y = yaw; beam.userData.noCast = true;
+      g.add(beam);
+      if (label) {
+        const tag = decal(plateTex([label], { w: 256, h: 80, size: 40, bg: '#f5f5f2', fg: '#1b2533', border: '#1b2533', borderW: 6 }), 0.09, 0.028);
+        tag.position.copy(p0); tag.position.y += 0.06; tag.rotation.y = yaw; g.add(tag);
+      }
+      shadowSet(g);
+      scene.add(g);
+      countEyes[key] = { ledMat, beamMat, lastCount: null, hitAt: -1e9 };
+    }
+    {
+      const yPE = BELT_TOP + 0.075;
+      const xPush = mmToX(980);
+      makeCountEye('pusher', new THREE.Vector3(xPush, yPE, -(RAIL_Z + 0.06)), new THREE.Vector3(xPush, yPE, RAIL_Z + 0.03), 'B3 PUSHER');
+      const xOk = mmToX(1400);
+      makeCountEye('ok', new THREE.Vector3(xOk, yPE, -(RAIL_Z + 0.06)), new THREE.Vector3(xOk, yPE, RAIL_Z + 0.03), 'B4 OK');
+      const zc = CHUTE_Z1 - 0.12;
+      const yc = CHUTE_Y0 - (zc - CHUTE_Z0) * Math.tan(chuteAng) + 0.07;
+      makeCountEye('reject', new THREE.Vector3(PUSHER_X - 0.43, yc, zc), new THREE.Vector3(PUSHER_X + 0.43, yc, zc), 'B5 NOK');
+    }
+    function updateCountEyes(now) {
+      const pe = liveState?.udts?.UDT_PhotoSensors;
+      if (!pe) return;
+      [['pusher', 'PE_Pusher'], ['ok', 'PE_OKBin'], ['reject', 'PE_RejectBin']].forEach(([k, tag]) => {
+        const e = countEyes[k];
+        const c = pe[tag + '_Count'];
+        if (e.lastCount !== null && c !== e.lastCount) e.hitAt = now;
+        e.lastCount = c;
+        const blocked = pe[tag + '_Blocked'] || now - e.hitAt < 300;
+        // light-on (beam made) = green; beam interrupted = amber + beam off
+        e.ledMat.emissive.setHex(blocked ? 0xffa31a : 0x22c55e);
+        e.ledMat.emissiveIntensity = blocked ? 6 : 1.5;
+        e.beamMat.opacity = blocked ? 0.0 : 0.16;
+      });
+    }
+
+    // =====================================================================
+    // 6-axis infeed robot: picks from the infeed tote, places on the belt at 0 mm
+    // (pose driven by UDT_MaterialHandling.Robot_Cycle_Pct)
+    // =====================================================================
+    const RB = { J1Y: 0.5, H0: 0.78, A1: 0.16, L1: 0.74, L2: 0.72, LT: 0.2 };
+    const robot = new THREE.Group();
+    robot.position.set(ROBOT_BASE.x, 0, ROBOT_BASE.z);
+    {
+      const plate = box(0.66, 0.02, 0.66, M.darkSteel, 0.004); plate.position.y = 0.01; robot.add(plate);
+      const ped = box(0.46, 0.36, 0.46, M.paintDark, 0.012); ped.position.y = 0.2; robot.add(ped);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+        const bolt = cyl(0.016, 0.016, 0.03, M.chrome, 12); bolt.position.set(sx * 0.29, 0.03, sz * 0.29); robot.add(bolt);
+      });
+      const base = cyl(0.19, 0.21, 0.12, M.robotPaint, 40); base.position.y = 0.44; robot.add(base);
+      const conn = box(0.08, 0.06, 0.1, M.plasticBlack, 0.01); conn.position.set(-0.2, 0.43, 0); robot.add(conn);
+      robot.add(tube([new THREE.Vector3(-0.24, 0.43, 0), new THREE.Vector3(-0.4, 0.3, 0.05), new THREE.Vector3(-0.45, 0.02, 0.15), new THREE.Vector3(-0.9, 0.012, 0.2)], 0.018, M.cable, 40));
+    }
+    const rj1 = new THREE.Group(); rj1.position.y = RB.J1Y; robot.add(rj1);
+    {
+      const turret = cyl(0.17, 0.19, 0.16, M.robotPaint, 40); turret.position.y = 0.08; rj1.add(turret);
+      const shoulder = box(0.24, 0.24, 0.3, M.robotPaint, 0.05); shoulder.position.set(RB.A1 * 0.6, RB.H0 - RB.J1Y - 0.04, 0); rj1.add(shoulder);
+      const m2 = cyl(0.075, 0.075, 0.16, M.motorGrey, 24, 'z'); m2.position.set(RB.A1, RB.H0 - RB.J1Y, -0.23); rj1.add(m2);
+      const m1 = cyl(0.06, 0.06, 0.14, M.motorGrey, 24); m1.position.set(-0.1, 0.2, 0.1); rj1.add(m1);
+    }
+    const rj2 = new THREE.Group(); rj2.position.set(RB.A1, RB.H0 - RB.J1Y, 0); rj1.add(rj2);
+    {
+      const cap = cyl(0.12, 0.12, 0.26, M.robotPaint, 32, 'z'); rj2.add(cap);
+      const arm = box(0.15, RB.L1, 0.17, M.robotPaint, 0.04); arm.position.y = RB.L1 / 2; rj2.add(arm);
+      const capE = cyl(0.1, 0.1, 0.24, M.robotPaint, 32, 'z'); capE.position.y = RB.L1; rj2.add(capE);
+      const plateL = cyl(0.07, 0.07, 0.01, M.darkSteel, 24, 'z'); plateL.position.set(0, 0, 0.135); rj2.add(plateL);
+      rj2.add(tube([new THREE.Vector3(-0.09, 0.1, 0.06), new THREE.Vector3(-0.11, RB.L1 * 0.5, 0.07), new THREE.Vector3(-0.09, RB.L1 - 0.1, 0.06)], 0.014, M.cableOrange, 20));
+    }
+    const rj3 = new THREE.Group(); rj3.position.y = RB.L1; rj2.add(rj3);
+    {
+      const housing = box(0.2, 0.17, 0.2, M.robotPaint, 0.04); housing.position.set(0.02, 0, 0); rj3.add(housing);
+      const m3 = cyl(0.06, 0.06, 0.16, M.motorGrey, 24, 'x'); m3.position.set(-0.15, 0.02, 0); rj3.add(m3);
+      const fore = cyl(0.075, 0.055, RB.L2 - 0.12, M.robotPaint, 28, 'x'); fore.position.x = (RB.L2 - 0.12) / 2 + 0.06; rj3.add(fore);
+    }
+    const rj5 = new THREE.Group(); rj5.position.x = RB.L2; rj3.add(rj5);
+    {
+      const wrist = cyl(0.06, 0.06, 0.14, M.robotPaint, 28, 'z'); rj5.add(wrist);
+    }
+    const rj6 = new THREE.Group(); rj5.add(rj6);
+    const robotTipNode = new THREE.Group(); robotTipNode.position.y = -RB.LT; rj6.add(robotTipNode);
+    const vacLedMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 0.05 });
+    {
+      const flange = cyl(0.045, 0.05, 0.05, M.darkSteel, 24); flange.position.y = -0.07; rj6.add(flange);
+      const bar = box(0.24, 0.025, 0.07, M.alu, 0.006); bar.position.y = -0.11; rj6.add(bar);
+      const ejector = box(0.06, 0.035, 0.05, M.plasticBlack, 0.006); ejector.position.set(0, -0.085, 0.05); rj6.add(ejector);
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), vacLedMat); led.position.set(0.02, -0.08, 0.077); rj6.add(led);
+      [[-0.09, -0.02], [0.09, -0.02], [-0.09, 0.02], [0.09, 0.02]].forEach(([x, z]) => {
+        const stem = cyl(0.006, 0.006, 0.05, M.chrome, 10); stem.position.set(x, -0.145, z); rj6.add(stem);
+        const cup = cyl(0.016, 0.024, 0.022, M.rubber, 16); cup.position.set(x, -0.18, z); rj6.add(cup);
+      });
+    }
+    shadowSet(robot);
+    scene.add(robot);
+
+    function robotIK(tip) {
+      const dx = tip.x - ROBOT_BASE.x, dz = tip.z - ROBOT_BASE.z;
+      const yaw = Math.atan2(-dz, dx);
+      const r = Math.hypot(dx, dz) - RB.A1;
+      const h = tip.y + RB.LT - RB.H0;
+      const D = Math.min(Math.hypot(r, h), RB.L1 + RB.L2 - 1e-3);
+      const c1 = (RB.L1 * RB.L1 + D * D - RB.L2 * RB.L2) / (2 * RB.L1 * D);
+      const phi1 = Math.atan2(h, r) + Math.acos(Math.max(-1, Math.min(1, c1)));
+      const ex = RB.L1 * Math.cos(phi1), ey = RB.L1 * Math.sin(phi1);
+      const phi2 = Math.atan2(h - ey, r - ex);
+      const j2 = phi1 - Math.PI / 2;
+      rj1.rotation.y = yaw;
+      rj2.rotation.z = j2;
+      rj3.rotation.z = phi2 - j2;
+      rj5.rotation.z = -phi2;
+      rj6.rotation.y = -yaw;
+    }
+
+    // =====================================================================
+    // AGV / AMR with two roller lanes: brings a fresh tote, takes the full (or empty) one
+    // (driven by UDT_MaterialHandling.AGV_State / AGV_Target / AGV_Progress_Pct)
+    // =====================================================================
+    const AGV = { W: 2.14, D: 1.2, PITCH: 1.05, AISLE_Z: 4.4, DOCK: new THREE.Vector3(-7.4, 0, 6.6) };
+    const agv = new THREE.Group();
+    const agvLedMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 2 });
+    const agvBeaconMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.1, transparent: true, opacity: 0.9 });
+    const agvLanes = [];
+    {
+      const chassis = box(AGV.W, 0.13, AGV.D, M.paintDark, 0.025); chassis.position.y = 0.115; agv.add(chassis);
+      const deck = box(AGV.W - 0.03, 0.02, AGV.D - 0.03, M.agvBody, 0.01); deck.position.y = 0.19; agv.add(deck);
+      [-1, 1].forEach(sz => {
+        const bump = box(AGV.W - 0.1, 0.05, 0.035, M.yellow, 0.01); bump.position.set(0, 0.085, sz * (AGV.D / 2 + 0.012)); agv.add(bump);
+        const strip = box(AGV.W - 0.4, 0.012, 0.01, agvLedMat); strip.position.set(0, 0.155, sz * (AGV.D / 2 + 0.003)); agv.add(strip);
+        [-1, 1].forEach(sx => {
+          const scanner = box(0.1, 0.06, 0.03, M.plasticBlack, 0.01); scanner.position.set(sx * (AGV.W / 2 - 0.09), 0.13, sz * (AGV.D / 2 + 0.01)); agv.add(scanner);
+          const wheel = cyl(0.062, 0.062, 0.08, M.rubber, 20, 'x'); wheel.position.set(sx * (AGV.W / 2 - 0.22), 0.062, sz * (AGV.D / 2 - 0.2)); agv.add(wheel);
+        });
+      });
+      [-1, 1].forEach(sx => {
+        const side = box(0.035, 0.05, AGV.D - 0.1, M.yellow, 0.01); side.position.set(sx * (AGV.W / 2 + 0.012), 0.085, 0); agv.add(side);
+      });
+      [-1, 1].forEach(lane => {
+        const bed = rollerBed(AGV.D - 0.1, 0.92);
+        bed.position.set(lane * AGV.PITCH / 2, STAND_H, 0);
+        agv.add(bed); agvLanes.push(bed);
+      });
+      const beacon = cyl(0.028, 0.028, 0.06, agvBeaconMat, 16); beacon.position.set(-AGV.W / 2 + 0.07, 0.23, AGV.D / 2 - 0.07); agv.add(beacon);
+      const estop = cyl(0.022, 0.022, 0.02, new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 }), 16); estop.position.set(AGV.W / 2 - 0.07, 0.21, AGV.D / 2 - 0.07); agv.add(estop);
+      const tag = decal(plateTex(['AGV-01', 'TOTE SHUTTLE'], { w: 512, h: 160, size: 58, bg: '#1b2533', fg: '#e2e8f0', border: '#f59e0b', borderW: 8 }), 0.34, 0.1);
+      tag.position.set(0, 0.115, AGV.D / 2 + 0.034); agv.add(tag);
+    }
+    shadowSet(agv);
+    agv.position.copy(AGV.DOCK);
+    scene.add(agv);
+
+    // Dock: charging pad + tote rack (where fresh totes come from and full ones go)
+    {
+      const pad = box(AGV.W + 0.3, 0.012, AGV.D + 0.3, M.paintDark, 0.004); pad.position.set(AGV.DOCK.x, 0.006, AGV.DOCK.z); scene.add(pad);
+      const charger = box(0.3, 0.5, 0.18, M.paintGrey, 0.02); charger.position.set(AGV.DOCK.x - AGV.W / 2 - 0.35, 0.25, AGV.DOCK.z); scene.add(charger);
+      const chLed = box(0.08, 0.02, 0.01, agvLedMat); chLed.position.set(AGV.DOCK.x - AGV.W / 2 - 0.35, 0.42, AGV.DOCK.z + 0.095); scene.add(chLed);
+      const rack = new THREE.Group();
+      const RW = 3.0, RD = 0.95;
+      [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1]].forEach(([sx, sz]) => {
+        const post = box(0.07, 1.9, 0.07, M.paintBlue, 0.006); post.position.set(sx * RW / 2, 0.95, sz * RD / 2); rack.add(post);
+      });
+      [0.12, 0.95, 1.75].forEach(y => {
+        [-1, 1].forEach(sz => { const beam = box(RW, 0.08, 0.05, M.yellow, 0.006); beam.position.set(0, y, sz * RD / 2); rack.add(beam); });
+        const deck = box(RW, 0.02, RD, M.darkSteel, 0.004); deck.position.set(0, y + 0.05, 0); rack.add(deck);
+      });
+      rack.position.set(AGV.DOCK.x + 0.3, 0, AGV.DOCK.z + 1.35);
+      shadowSet(rack);
+      scene.add(rack);
+      // stock on the rack: fresh infeed totes and empty bins
+      [['INFEED', -0.75, 0.18], ['INFEED', 0.75, 0.18], ['REJECT', -0.75, 1.01], ['OK', 0.75, 1.01], ['OK', -0.75, 1.81]].forEach(([k, x, y]) => {
+        const t = makeTote(k);
+        t.position.set(rack.position.x + x, y, rack.position.z);
+        t.userData.rackFill = k === 'INFEED';
+      });
+      const sign = decal(plateTex(['AGV DOCK', 'TOTE BUFFER'], { w: 512, h: 160, size: 60, bg: '#f5f5f2', fg: '#1b2533', border: '#f59e0b', borderW: 10 }), 0.7, 0.22);
+      sign.position.set(rack.position.x, 2.05, rack.position.z - RD / 2 - 0.03); sign.rotation.y = Math.PI; scene.add(sign);
+    }
+
+    // ---- AGV paths (mecanum: it never needs to turn) ----
+    function agvDockPose(key, laneSign) {
+      // laneSign +1: lane B (+x) faces the stand, -1: lane A (-x) faces the stand
+      const b = stations[key].bin;
+      return new THREE.Vector3(b.x - laneSign * AGV.PITCH / 2, 0, b.z + b.d / 2 + 0.06 + AGV.D / 2);
+    }
+    function polyPoint(pts, s, out) {
+      let total = 0;
+      const lens = [];
+      for (let i = 1; i < pts.length; i++) { const l = pts[i].distanceTo(pts[i - 1]); lens.push(l); total += l; }
+      let d = Math.max(0, Math.min(1, s)) * total;
+      for (let i = 0; i < lens.length; i++) {
+        if (d <= lens[i] || i === lens.length - 1) return out.lerpVectors(pts[i], pts[i + 1], lens[i] > 0 ? Math.min(1, d / lens[i]) : 1);
+        d -= lens[i];
+      }
+      return out.copy(pts[pts.length - 1]);
+    }
+    const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const seg = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
+
+    // =====================================================================
     // Live state from the Soft-PLC (/api/state)
     // =====================================================================
     let liveState = null;
@@ -1453,7 +1753,8 @@
 
     async function pollState() {
       try {
-        const res = await fetch('/api/state');
+        const apiUrl = (location.port === '8020') ? '/api/state' : 'http://' + (location.hostname || '127.0.0.1') + ':8020/api/state';
+        const res = await fetch(apiUrl);
         liveState = await res.json();
         pollTime = performance.now();
         const conv = liveState.udts.UDT_ConveyorAxis;
@@ -1466,6 +1767,19 @@
         document.getElementById('hudSpeed').textContent = conv.Actual_PPM.toFixed(0);
         document.getElementById('hudFifo').textContent = conv.FIFO_Queue_Depth;
         document.getElementById('hudBin').textContent = (rej.Bin_Count ?? 0) + '/' + (rej.Bin_Capacity ?? 25);
+        const mh = liveState.udts.UDT_MaterialHandling;
+        if (mh) {
+          document.getElementById('hudInfeed').textContent = mh.Infeed_Count + '/' + mh.Infeed_Capacity;
+          document.getElementById('hudOk').textContent = mh.OK_Bin_Count + '/' + mh.OK_Bin_Capacity;
+          document.getElementById('hudRobot').textContent = mh.Robot_State;
+          const pe = liveState.udts.UDT_PhotoSensors;
+          if (pe) document.getElementById('hudPE').textContent = pe.PE_Pusher_Count + ' / ' + pe.PE_OKBin_Count + ' / ' + pe.PE_RejectBin_Count;
+          document.getElementById('hudAgv').textContent = mh.AGV_State + (mh.AGV_Target ? ' → ' + mh.AGV_Target : '');
+          const blk = document.getElementById('hudBlock');
+          const BLOCK_TXT = { E_STOP: 'PARO DE EMERGENCIA', REJECT_BIN_FULL: 'CAJA RECHAZO LLENA', OK_BIN_FULL: 'CAJA OK LLENA', STOPPED: 'LÍNEA PARADA', INFEED_EMPTY: 'SIN PIEZAS EN ENTRADA' };
+          blk.style.display = mh.Line_Block_Reason ? 'inline-block' : 'none';
+          blk.textContent = BLOCK_TXT[mh.Line_Block_Reason] || mh.Line_Block_Reason;
+        }
         document.getElementById('hudEdgeMs').textContent = cam.Last_Edge_Latency_ms.toFixed(1) + ' ms';
         document.getElementById('hudCloudMs').textContent = cam.Last_Cloud_Latency_ms.toFixed(0) + ' ms';
         document.getElementById('hudSerial').textContent = cam.Last_Serial;
@@ -1489,22 +1803,77 @@
     pollState();
 
     // =====================================================================
-    // Part life-cycle on the belt → pusher → chute → tote
+    // Part life-cycle: infeed tote → robot → belt → pusher/outfeed → tote → AGV
     // =====================================================================
-    const beltParts = new Map();
-    const binParts = { reject: [], ok: [] };
+    const beltParts = new Map();       // key: track_id (robot-fed PLC) or serial_number (legacy)
+    const pendingDrops = [];           // parts the robot released that the PLC has not reported yet
     let pusherKick = -1e9;
     const easeOut = t => 1 - Math.pow(1 - t, 3);
     const easeIn = t => t * t;
     const linear = t => t;
-
-    function binSlot(bin, n) {
-      const perRow = 3, perLayer = 6;
-      const layer = Math.floor(n / perLayer), k = n % perLayer;
-      const cx = (k % perRow - 1) * (bin.w * 0.28) + (Math.random() - 0.5) * 0.06;
-      const cz = (Math.floor(k / perRow) - 0.5) * (bin.d * 0.38) + (Math.random() - 0.5) * 0.06;
-      return new THREE.Vector3(bin.x + cx, 0.05 + layer * 0.09, bin.z + cz);
+    const partHeightCache = {};
+    function partHeight(recipe) {
+      recipe = normRecipe(recipe);
+      if (partHeightCache[recipe] === undefined) {
+        const m = createPartMesh(recipe);
+        partHeightCache[recipe] = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y || 0.1;
+      }
+      return partHeightCache[recipe];
     }
+    const activeRecipe = () => normRecipe(liveState?.udts?.UDT_ProductionBatch?.Active_Recipe || 'CAST_100');
+
+    // Loose parts in reject / OK totes (local to the tote, so they leave with it)
+    function binSlotLocal(kind, n) {
+      const cols = kind === 'OK' ? 4 : 3, rows = 3, per = cols * rows;
+      const layer = Math.floor(n / per), k = n % per;
+      const cx = ((k % cols) - (cols - 1) / 2) * (0.6 / cols) + (Math.random() - 0.5) * 0.04;
+      const cz = (Math.floor(k / cols) - 1) * 0.18 + (Math.random() - 0.5) * 0.04;
+      return new THREE.Vector3(cx, 0.05 + layer * 0.075, cz);
+    }
+    // Kitted parts in the infeed tote (neat 3 × 2 × 2)
+    const INFEED_VISIBLE = 12;
+    function infeedSlotLocal(n, recipe) {
+      const layer = Math.floor(n / 6), k = n % 6;
+      return new THREE.Vector3(((k % 3) - 1) * 0.27, 0.03 + layer * (partHeight(recipe) + 0.01), (Math.floor(k / 3) - 0.5) * 0.36);
+    }
+    function addPartToTote(tote, recipe) {
+      const kind = tote.userData.kind;
+      const parts = tote.userData.parts;
+      const mesh = createPartMesh(recipe);
+      if (kind === 'INFEED') {
+        mesh.position.copy(infeedSlotLocal(parts.length, recipe));
+      } else {
+        mesh.position.copy(binSlotLocal(kind, parts.length));
+        mesh.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.5);
+        mesh.scale.setScalar(0.8);
+      }
+      tote.add(mesh);
+      parts.push(mesh);
+    }
+    function inflightTo(kind) {
+      let n = 0;
+      for (const p of beltParts.values()) if (p.mode === 'flight' && p.binKind === kind) n++;
+      return n;
+    }
+    // count: PLC counter (photo-eye based). pending: parts already flying / about to drop in.
+    function syncTote(tote, count, recipe, pending = 0, now = 0) {
+      const parts = tote.userData.parts;
+      if (tote.userData.kind === 'INFEED' && tote.userData.recipe !== recipe) {
+        while (parts.length) tote.remove(parts.pop());
+        tote.userData.recipe = recipe;
+      }
+      count = Math.max(0, Math.floor(count));
+      // a part that just landed may be ahead of the photo-eye count by one poll
+      const maxKeep = count + (now - (tote.userData.lastLand || -1e9) < 1500 ? 1 : 0);
+      while (parts.length > maxKeep) tote.remove(parts.pop());
+      let guard = 0;
+      while (parts.length < count - pending && guard++ < 60) addPartToTote(tote, recipe);
+    }
+    function fillInfeed(tote, recipe) {
+      tote.userData.recipe = recipe;
+      for (let i = 0; i < INFEED_VISIBLE; i++) addPartToTote(tote, recipe);
+    }
+
     function startFlight(p, keyframes) {
       p.mode = 'flight';
       p.frames = keyframes;
@@ -1513,45 +1882,79 @@
       p.spin = new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 6);
       if (p.marker) { p.mesh.remove(p.marker); p.marker = null; }
     }
-    function settle(p, kind) {
-      p.mode = 'settled';
-      const list = binParts[kind];
-      list.push(p.mesh);
-      const cap = kind === 'reject' ? 25 : 24;
-      while (list.length > cap) scene.remove(list.shift());
+    function flightIntoTote(p, kind, preFrames) {
+      const tote = stations[kind].tote;
+      tote.updateMatrixWorld(true);
+      const local = binSlotLocal(kind, tote.userData.parts.length + inflightTo(kind));
+      p.binKind = kind;
+      p.targetTote = tote;
+      p.targetLocal = local;
+      startFlight(p, [...preFrames, { pos: tote.localToWorld(local.clone()), dur: 0.3, ease: easeIn, spin: true }]);
     }
-    function syncRejectBin() {
-      const count = liveState?.udts?.UDT_RejectActuator?.Bin_Count;
-      if (typeof count === 'number' && count < binParts.reject.length) {
-        while (binParts.reject.length > count) scene.remove(binParts.reject.shift());
+    function settle(p) {
+      p.mode = 'settled';
+      const tote = p.targetTote;
+      p.mesh.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.5);
+      p.mesh.scale.setScalar(0.8);
+      if (tote && tote.parent) {
+        tote.attach(p.mesh);
+        p.mesh.position.copy(p.targetLocal);
+        tote.userData.parts.push(p.mesh);
+        tote.userData.lastLand = performance.now();
+      } else {
+        scene.remove(p.mesh);
       }
+    }
+
+    function newBeltPart(item, key) {
+      const recipe = normRecipe(item.product_recipe);
+      const mesh = createPartMesh(recipe);
+      mesh.rotation.y = Math.random() * Math.PI * 2;
+      mesh.position.set(mmToX(item.pos_mm), BELT_TOP, 0);
+      scene.add(mesh);
+      const p = { mesh, marker: null, recipe, status: 'PENDING', mode: 'belt' };
+      beltParts.set(key, p);
+      return p;
     }
 
     function updateParts(dt, now) {
       const conv = liveState?.udts?.UDT_ConveyorAxis;
+      const mh = liveState?.udts?.UDT_MaterialHandling;
+      const rej = liveState?.udts?.UDT_RejectActuator;
       const running = conv?.Running_FB ?? false;
       const speed = running ? (conv?.Belt_Speed_mm_s ?? 0) : 0;
       const elapsed = Math.min(1.0, (now - pollTime) / 1000);
       const fifo = liveState?.fifo_queue || [];
       const seen = new Set();
 
+      // robot-released parts ride the belt until the PLC reports them
+      for (let i = pendingDrops.length - 1; i >= 0; i--) {
+        const d = pendingDrops[i];
+        d.mesh.position.x += speed * MM_TO_UNITS * dt;
+        if (now - d.t > 3000) { scene.remove(d.mesh); pendingDrops.splice(i, 1); }
+      }
+
       fifo.forEach(item => {
-        const sn = item.serial_number;
-        seen.add(sn);
-        let p = beltParts.get(sn);
+        const key = item.track_id || item.serial_number;
+        if (!key) return;
+        seen.add(key);
+        let p = beltParts.get(key);
         if (!p) {
           if (item.actuated && item.plc_action && item.plc_action !== 'PASS_CONVEYOR') return; // already rejected before page load
-          const recipe = normRecipe(item.product_recipe);
-          const mesh = createPartMesh(recipe);
-          mesh.rotation.y = Math.random() * Math.PI * 2;
-          const marker = makeMarker(item.edge_status, PART_RADIUS[recipe] || 0.22);
-          mesh.add(marker);
-          mesh.position.set(mmToX(item.pos_mm), BELT_TOP, 0);
-          scene.add(mesh);
-          p = { mesh, marker, recipe, status: item.edge_status, mode: 'belt' };
-          beltParts.set(sn, p);
+          if (pendingDrops.length && item.pos_mm < 700 && !item.actuated) {
+            const d = pendingDrops.shift();
+            p = { mesh: d.mesh, marker: null, recipe: d.recipe, status: 'PENDING', mode: 'belt' };
+            beltParts.set(key, p);
+          } else {
+            p = newBeltPart(item, key);
+          }
         }
         if (p.mode !== 'belt') return;
+        if (p.status === 'PENDING' && item.edge_status && item.edge_status !== 'PENDING') {
+          p.status = item.edge_status;
+          p.marker = makeMarker(item.edge_status, PART_RADIUS[p.recipe] || 0.22);
+          p.mesh.add(p.marker);
+        }
         const predMm = Math.min(1450, item.pos_mm + speed * elapsed);
         const tx = mmToX(predMm);
         p.mesh.position.x += (tx - p.mesh.position.x) * Math.min(1, dt * 12);
@@ -1559,26 +1962,20 @@
         if (item.actuated && item.plc_action && item.plc_action !== 'PASS_CONVEYOR') {
           pusherKick = now;
           const x = PUSHER_X + (Math.random() - 0.5) * 0.1;
-          const n = binParts.reject.length;
-          startFlight(p, [
+          flightIntoTote(p, 'REJECT', [
             { pos: new THREE.Vector3(x, BELT_TOP, CHUTE_Z0 + 0.05), dur: 0.16, ease: easeOut },
-            { pos: new THREE.Vector3(x, CHUTE_Y1 + 0.02, CHUTE_Z1), dur: 0.32, ease: easeIn, tilt: chuteAng },
-            { pos: binSlot(REJECT_BIN, n), dur: 0.28, ease: easeIn, spin: true }
+            { pos: new THREE.Vector3(x, CHUTE_Y1 + 0.02, CHUTE_Z1), dur: 0.32, ease: easeIn, tilt: chuteAng }
           ]);
-          p.binKind = 'reject';
         }
       });
 
-      for (const [sn, p] of beltParts.entries()) {
-        if (p.mode === 'belt' && !seen.has(sn)) {
-          const n = binParts.ok.length;
+      for (const [key, p] of beltParts.entries()) {
+        if (p.mode === 'belt' && !seen.has(key)) {
           const v = Math.max(0.5, speed * MM_TO_UNITS || 1.5);
-          startFlight(p, [
+          flightIntoTote(p, 'OK', [
             { pos: new THREE.Vector3(BELT_HALF_LEN + 0.05, BELT_TOP, p.mesh.position.z), dur: Math.max(0.05, (BELT_HALF_LEN + 0.05 - p.mesh.position.x) / v), ease: linear },
-            { pos: new THREE.Vector3(BELT_HALF_LEN + 0.42, BELT_TOP - 0.25, 0), dur: 0.2, ease: easeIn, tilt: 0.45, tiltAxis: 'z' },
-            { pos: binSlot(OK_BIN, n), dur: 0.3, ease: easeIn, spin: true }
+            { pos: new THREE.Vector3(BELT_HALF_LEN + 0.42, BELT_TOP - 0.25, 0), dur: 0.2, ease: easeIn, tilt: 0.45, tiltAxis: 'z' }
           ]);
-          p.binKind = 'ok';
         }
         if (p.mode === 'flight') {
           const f = p.frames[p.fi];
@@ -1594,14 +1991,192 @@
           if (t >= 1) {
             p.from = f.pos.clone(); p.ft = 0; p.fi++;
             if (p.fi >= p.frames.length) {
-              p.mesh.rotation.set((Math.random() - 0.5) * 0.9, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.9);
-              settle(p, p.binKind);
-              beltParts.delete(sn);
+              settle(p);
+              beltParts.delete(key);
             }
           }
         }
       }
-      syncRejectBin();
+
+      // Tote contents follow the PLC counters (parts in flight are already counted by the PLC)
+      const recipe = activeRecipe();
+      if (rej && typeof rej.Bin_Count === 'number') syncTote(stations.REJECT.tote, rej.Bin_Count, recipe, inflightTo('REJECT'), now);
+      if (mh) {
+        // OK parts are counted by the outfeed photo-eye (1400 mm) just before they drop
+        const okOnBeltEnd = fifo.filter(it => it.plc_action === 'PASS_CONVEYOR' && it.pos_mm >= 1400).length;
+        syncTote(stations.OK.tote, mh.OK_Bin_Count, recipe, inflightTo('OK') + okOnBeltEnd, now);
+        syncTote(stations.INFEED.tote, Math.ceil(INFEED_VISIBLE * mh.Infeed_Count / Math.max(1, mh.Infeed_Capacity)), recipe);
+      } else {
+        const okParts = stations.OK.tote.userData.parts;
+        while (okParts.length > 24) stations.OK.tote.remove(okParts.shift());
+        if (!stations.INFEED.tote.userData.parts.length) fillInfeed(stations.INFEED.tote, recipe);
+      }
+      // rack stock (cosmetic)
+      if (!rackFilled) {
+        rackFilled = true;
+        scene.children.filter(o => o.userData && o.userData.rackFill).forEach(t => fillInfeed(t, recipe));
+      }
+    }
+    let rackFilled = false;
+
+    // ---- Robot pose from the PLC cycle ----
+    let robotShownPct = 0;
+    let robotCarry = null;
+    const robotPickTarget = new THREE.Vector3();
+    const _tip = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
+    const ROBOT_SEGS = [
+      [0, 28, 'placeUp', 'pickUp', 0.12],
+      [28, 40, 'pickUp', 'pick', 0],
+      [40, 45, 'pick', 'pick', 0],
+      [45, 57, 'pick', 'pickUp', 0],
+      [57, 85, 'pickUp', 'placeUp', 0.12],
+      [85, 93, 'placeUp', 'place', 0],
+      [93, 95, 'place', 'place', 0],
+      [95, 100.01, 'place', 'placeUp', 0]
+    ];
+    function updateRobot(dt, now) {
+      const mh = liveState?.udts?.UDT_MaterialHandling;
+      const conv = liveState?.udts?.UDT_ConveyorAxis;
+      const elapsed = Math.min(1.0, (now - pollTime) / 1000);
+      let pct = 0;
+      if (mh) {
+        pct = mh.Robot_Cycle_Pct || 0;
+        const moving = ['PICK', 'PLACE', 'IDLE'].includes(mh.Robot_State) && (conv?.Running_FB ?? false);
+        if (moving) pct = Math.min(99.9, pct + elapsed * 100 / Math.max(0.5, mh.Robot_Cycle_Time_s || 2));
+      }
+      // monotonic within a cycle (poll corrections never move the arm backwards)
+      if (pct < robotShownPct && robotShownPct - pct < 50) pct = robotShownPct;
+      robotShownPct = pct;
+
+      const recipe = activeRecipe();
+      const ph = partHeight(recipe);
+      const tote = stations.INFEED.tote;
+      if (pct < 28 || !robotCarry && pct < 40) {
+        const parts = tote.userData.parts;
+        if (parts.length) parts[parts.length - 1].getWorldPosition(robotPickTarget);
+        else robotPickTarget.set(tote.position.x, tote.position.y + 0.03, tote.position.z);
+        robotPickTarget.y += ph;
+      }
+      const P = {
+        pick: robotPickTarget,
+        pickUp: _a.set(robotPickTarget.x, STAND_H + TOTE_H + 0.32, robotPickTarget.z),
+        place: _b.set(mmToX(0), BELT_TOP + ph + 0.003, 0),
+      };
+      P.placeUp = P.place.clone(); P.placeUp.y += 0.3;
+      const sgm = ROBOT_SEGS.find(s => pct >= s[0] && pct < s[1]) || ROBOT_SEGS[0];
+      const u = easeInOut(seg(pct, sgm[0], sgm[1]));
+      _tip.lerpVectors(P[sgm[2]], P[sgm[3]], u);
+      _tip.y += Math.sin(Math.PI * u) * sgm[4];
+      robotIK(_tip);
+
+      // vacuum gripper: pick at 45 %, release at 95 %
+      const holding = mh && pct >= 45 && pct < 95;
+      if (holding && !robotCarry) {
+        robotCarry = createPartMesh(recipe);
+        robotCarry.userData.recipe = recipe;
+        robotCarry.position.set(0, -ph, 0);
+        robotTipNode.add(robotCarry);
+      } else if (!holding && robotCarry) {
+        if (pct >= 95) {
+          scene.attach(robotCarry);
+          robotCarry.position.set(mmToX(0), BELT_TOP, 0);
+          robotCarry.rotation.set(0, robotCarry.rotation.y, 0);
+          pendingDrops.push({ mesh: robotCarry, recipe: robotCarry.userData.recipe, t: now });
+        } else {
+          robotTipNode.remove(robotCarry);
+        }
+        robotCarry = null;
+      }
+      vacLedMat.emissiveIntensity = holding ? 4 : 0.05;
+    }
+
+    // ---- AGV pose + tote swap from the PLC sequence ----
+    const agvLoad = { fresh: null, old: null, target: '' };
+    const _agvPos = new THREE.Vector3();
+    let agvLastState = '';
+    function spinRollers(list, v, dt) { list.forEach(r => { r.rotation.x += v / ROLLER_R * dt; }); }
+    function updateAGV(dt, now) {
+      const mh = liveState?.udts?.UDT_MaterialHandling;
+      if (!mh) return;
+      const state = mh.AGV_State, target = mh.AGV_Target;
+      const elapsed = Math.min(1.0, (now - pollTime) / 1000);
+      const dur = state === 'SWAP' ? (mh.AGV_Swap_Time_s || 6) : (mh.AGV_Leg_Time_s || 12);
+      let p = state === 'PARKED' ? 0 : Math.min(100, (mh.AGV_Progress_Pct || 0) + elapsed * 100 / dur);
+      const st = stations[target];
+
+      if (state !== agvLastState) {
+        if (state === 'TO_STATION' && target) {
+          const why = { REJECT: 'caja de rechazo llena', OK: 'caja OK llena', INFEED: 'quedan pocas piezas en la entrada' }[target] || '';
+          toast('AGV en camino a ' + target + (why ? ' (' + why + ')' : ''));
+        }
+        agvLastState = state;
+      }
+
+      // which totes ride on the AGV
+      if ((state === 'TO_STATION' || state === 'SWAP') && st) {
+        if (!agvLoad.fresh || agvLoad.target !== target) {
+          if (agvLoad.fresh) scene.remove(agvLoad.fresh);
+          agvLoad.fresh = makeTote(target);
+          if (target === 'INFEED') fillInfeed(agvLoad.fresh, activeRecipe());
+          agvLoad.target = target;
+        }
+      }
+      if (state === 'RETURN' && st && agvLoad.fresh) {
+        // swap finished in the PLC: fresh tote now belongs to the station
+        if (!agvLoad.old) agvLoad.old = st.tote;
+        st.tote = agvLoad.fresh;
+        agvLoad.fresh = null;
+      }
+      if (state === 'PARKED') {
+        if (agvLoad.old) { scene.remove(agvLoad.old); agvLoad.old = null; }
+        if (agvLoad.fresh) { scene.remove(agvLoad.fresh); agvLoad.fresh = null; }
+        agvLoad.target = '';
+      }
+
+      // AGV pose
+      let laneV = [0, 0], standV = 0;
+      if (state === 'TO_STATION' && st) {
+        const d = agvDockPose(target, 1);
+        polyPoint([AGV.DOCK, new THREE.Vector3(AGV.DOCK.x, 0, AGV.AISLE_Z), new THREE.Vector3(d.x, 0, AGV.AISLE_Z), d], easeInOut(p / 100), _agvPos);
+      } else if (state === 'SWAP' && st) {
+        const dB = agvDockPose(target, 1), dA = agvDockPose(target, -1);
+        _agvPos.lerpVectors(dB, dA, easeInOut(seg(p, 38, 55)));
+      } else if (state === 'RETURN' && st) {
+        const dA = agvDockPose(target, -1);
+        polyPoint([dA, new THREE.Vector3(dA.x, 0, AGV.AISLE_Z), new THREE.Vector3(AGV.DOCK.x, 0, AGV.AISLE_Z), AGV.DOCK], easeInOut(p / 100), _agvPos);
+      } else {
+        _agvPos.copy(AGV.DOCK);
+      }
+      agv.position.copy(_agvPos);
+
+      const laneX = s => _agvPos.x + s * AGV.PITCH / 2;
+      if (state === 'SWAP' && st) {
+        const b = st.bin;
+        const old = agvLoad.old || st.tote;
+        agvLoad.old = old;
+        const tOld = easeInOut(seg(p, 8, 38));
+        if (p < 38) old.position.set(b.x, STAND_H, b.z + (_agvPos.z - b.z) * tOld);
+        else old.position.set(laneX(1), STAND_H, _agvPos.z);
+        const tNew = easeInOut(seg(p, 55, 88));
+        if (agvLoad.fresh) {
+          if (p < 55) agvLoad.fresh.position.set(laneX(-1), STAND_H, _agvPos.z);
+          else agvLoad.fresh.position.set(b.x, STAND_H, _agvPos.z + (b.z - _agvPos.z) * tNew);
+        }
+        if (p > 8 && p < 38) { laneV[1] = 0.6; standV = 0.6; }
+        if (p > 55 && p < 88) { laneV[0] = -0.6; standV = -0.6; }
+      } else {
+        if (agvLoad.fresh) agvLoad.fresh.position.set(laneX(-1), STAND_H, _agvPos.z);
+        if (agvLoad.old) agvLoad.old.position.set(laneX(1), STAND_H, _agvPos.z);
+      }
+      spinRollers(agvLanes[0].userData.rollers, laneV[0], dt);
+      spinRollers(agvLanes[1].userData.rollers, laneV[1], dt);
+      if (st) spinRollers(st.rollers, standV, dt);
+
+      const moving = state === 'TO_STATION' || state === 'RETURN';
+      const blink = Math.sin(now / 1000 * 8) > 0;
+      agvLedMat.color.setHex(state === 'SWAP' ? 0xf59e0b : state === 'PARKED' ? 0x22c55e : 0x38bdf8);
+      agvLedMat.emissive.copy(agvLedMat.color);
+      agvBeaconMat.emissiveIntensity = (moving || state === 'SWAP') && blink ? 5 : 0.1;
     }
 
     // =====================================================================
@@ -1721,6 +2296,9 @@
       valveLedMat.emissiveIntensity = target ? 4 : 0.05;
       peLedMat.emissiveIntensity = flash > 0.5 ? 6 : 1.5;
 
+      updateAGV(dt, now);
+      updateCountEyes(now);
+      updateRobot(dt, now);
       updateParts(dt, now);
       composer.render();
 

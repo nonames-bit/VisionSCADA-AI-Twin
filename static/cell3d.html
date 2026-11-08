@@ -325,12 +325,13 @@
       const fifo = liveState?.fifo_queue || [];
       const activeSerials = new Set();
       fifo.forEach(item => {
-        activeSerials.add(item.serial_number);
-        let mesh = partMeshes.get(item.serial_number);
+        const key = item.track_id || item.serial_number;
+        activeSerials.add(key);
+        let mesh = partMeshes.get(key);
         if (!mesh) {
           mesh = createPartMesh(item.product_recipe, item.edge_status);
           scene.add(mesh);
-          partMeshes.set(item.serial_number, mesh);
+          partMeshes.set(key, mesh);
         }
         const targetX = -3.1 + ((item.pos_mm - 100.0) / 1300.0) * 6.4;
         mesh.position.x += (targetX - mesh.position.x) * 0.25;

@@ -124,4 +124,4 @@ def fetch_real_datasets(num_per_class: int = 15):
     print("\n=== Real Dataset Ingestion Completed Successfully! ===")
 
 if __name__ == "__main__":
-    fetch_real_datasets(num_per_class=16)
+    fetch_real_datasets(num_per_class=50)

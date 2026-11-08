@@ -5,6 +5,8 @@ and Industrial OPC-UA Server exposing 4 UDT structures for Ignition SCADA 8.3:
   - UDT_VisionCamera
   - UDT_RejectActuator
   - UDT_ProductionBatch
+  - UDT_MaterialHandling  (infeed robot + AGV tote logistics)
+  - UDT_PhotoSensors      (photo-eyes before the pusher and at the entry of each tote)
 
 Listens on `opc.tcp://0.0.0.0:48410/brewscada/server/` (namespace `http://brewscada.industrial.game`)
 so Ignition's `BrewSCADA_OPCUA` connection links immediately with Good quality.
@@ -39,13 +41,35 @@ PLC_WRITABLE_TAGS = {
     ("UDT_ProductionBatch", "Scenario_Bad_Lot"): bool,
     ("UDT_ProductionBatch", "Scenario_Dirty_Lens"): bool,
     ("UDT_ProductionBatch", "Scenario_Cloud_Offline"): bool,
+    ("UDT_MaterialHandling", "AGV_Auto_Mode"): bool,
+    ("UDT_MaterialHandling", "Refill_Infeed_Cmd"): bool,
+    ("UDT_MaterialHandling", "Clear_OK_Bin_Cmd"): bool,
 }
+
+# Belt stations (mm from the infeed end of the conveyor)
+INFEED_POS_MM = 0.0        # 6-axis robot drops parts here
+CAMERA_POS_MM = 300.0      # vision trigger (photo-eye + camera)
+PUSHER_POS_MM = 1100.0     # pneumatic reject pusher
+OUTFEED_POS_MM = 1450.0    # parts leave the belt into the OK tote
+
+# Photo-eyes (mm on the belt) and the part footprint that blocks a beam
+PE_PUSHER_POS_MM = 980.0      # confirms the part arrives before the pusher fires
+PE_OK_POS_MM = 1400.0         # outfeed end: counts parts dropping into the OK tote
+PE_BLOCK_HALF_MM = 75.0
+CHUTE_TRAVEL_S = 0.35         # pusher -> reject tote entry photo-eye
+
+# Robot cycle: fraction of the cycle where the gripper closes on a part
+ROBOT_GRIP_AT = 0.45
+# AGV dispatch: call the AGV for a new infeed tote when this many parts remain
+INFEED_CALL_AHEAD = 8
 
 
 class SoftPLCController:
     """
     Deterministic Soft-PLC executing a 100 ms scan cycle:
-    - Tracks parts along a 1400 mm conveyor from Camera Trigger (x=300mm) to Reject Pusher (x=1100mm).
+    - A 6-axis infeed robot places each part on the belt at 0 mm; the camera fires when it crosses 300 mm.
+    - Tracks parts along the conveyor from the robot drop (0 mm) past the Reject Pusher (1100 mm) to the outfeed (1450 mm).
+    - An AGV swaps the infeed tote (call-ahead) and the full reject / OK totes (line interlocked while full).
     - Enforces Edge inference watchdog (< 350 ms); trips Fail-Safe Reject if Edge times out.
     - Computes real-time OEE (Availability x Performance x Quality) and SPC p-Chart state.
     """
@@ -56,10 +80,19 @@ class SoftPLCController:
         self.planned_time_sec = 1.0
         self.run_time_sec = 1.0
         self.last_scan_ts = time.monotonic()
-        self.last_spawn_ts = time.monotonic()
         self.piston_off_at = 0.0
+        self.trigger_off_at = 0.0
 
-        # FIFO Tracking Queue of parts currently between Camera (300mm) and Outfeed (1400mm)
+        # Material handling (infeed robot + AGV) internal state
+        self.track_seq = 0
+        self.robot_holding = False
+        self.robot_pct = 0.0
+        self.camera_item: Optional[Dict[str, Any]] = None
+        self.agv_queue: List[str] = []
+        self.chute_arrivals: List[float] = []
+        self.reject_pe_off_at = 0.0
+
+        # FIFO Tracking Queue of parts on the belt, from the robot drop (0 mm) to the outfeed (1450 mm)
         self.fifo_queue: List[Dict[str, Any]] = []
 
         # Active Demo Scenario Flags
@@ -141,6 +174,35 @@ class SoftPLCController:
                 "Copilot_RCA_Summary": "Proceso bajo control estadístico. Edge decide en ~14 ms dentro de la ventana del pistón; Cloud audita en segundo plano.",
                 "Copilot_SQL_Query": "SELECT product_recipe, edge_defect_class, supplier_code, COUNT(*) FROM inspections GROUP BY 1,2,3;",
             },
+            "UDT_MaterialHandling": {
+                "Infeed_Count": 60,
+                "Infeed_Capacity": 60,
+                "OK_Bin_Count": 0,
+                "OK_Bin_Capacity": 50,
+                "Robot_State": "IDLE",
+                "Robot_Cycle_Pct": 0.0,
+                "Robot_Cycle_Time_s": 2.0,
+                "Robot_Picks_Total": 0,
+                "AGV_Auto_Mode": True,
+                "AGV_State": "PARKED",
+                "AGV_Target": "",
+                "AGV_Progress_Pct": 0.0,
+                "AGV_Leg_Time_s": 12.0,
+                "AGV_Swap_Time_s": 6.0,
+                "AGV_Swaps_Total": 0,
+                "AGV_Queue": "",
+                "Refill_Infeed_Cmd": False,
+                "Clear_OK_Bin_Cmd": False,
+                "Line_Block_Reason": "",
+            },
+            "UDT_PhotoSensors": {
+                "PE_Pusher_Blocked": False,
+                "PE_Pusher_Count": 0,
+                "PE_RejectBin_Blocked": False,
+                "PE_RejectBin_Count": 0,
+                "PE_OKBin_Blocked": False,
+                "PE_OKBin_Count": 0,
+            },
         }
 
     def write_udt_tag(self, udt_name: str, tag_name: str, value: Any) -> Dict[str, Any]:
@@ -194,6 +256,14 @@ class SoftPLCController:
             self.udts["UDT_RejectActuator"]["Bin_Level_Pct"] = 0.0
             self.udts["UDT_RejectActuator"]["Clear_Bin_Cmd"] = False
 
+        mh = self.udts["UDT_MaterialHandling"]
+        if udt_name == "UDT_MaterialHandling" and tag_name == "Refill_Infeed_Cmd" and cast_val:
+            mh["Infeed_Count"] = mh["Infeed_Capacity"]
+            mh["Refill_Infeed_Cmd"] = False
+        elif udt_name == "UDT_MaterialHandling" and tag_name == "Clear_OK_Bin_Cmd" and cast_val:
+            mh["OK_Bin_Count"] = 0
+            mh["Clear_OK_Bin_Cmd"] = False
+
         return {"ok": True, "udt": udt_name, "tag": tag_name, "value": cast_val}
 
     def _switch_recipe_context(self, recipe: str):
@@ -211,6 +281,155 @@ class SoftPLCController:
             self.udts["UDT_ProductionBatch"]["Batch_Code"] = "LOT-PCB-2026-03"
             self.udts["UDT_ProductionBatch"]["Supplier_Code"] = "SUP-SZX-05"
             self.udts["UDT_ProductionBatch"]["Supplier_Name"] = "Shenzhen MicroCircuits SMT (Shenzhen, CN)"
+
+    def register_inspection(
+        self,
+        serial_number: str,
+        product_recipe: str,
+        edge_status: str,
+        edge_defect_class: str,
+        plc_action: str,
+    ) -> Dict[str, Any]:
+        """Writes the vision verdict into the FIFO slot of the part that is at the camera.
+
+        Called from the camera-trigger callback. If no part is being tracked at the camera
+        (e.g. the callback is used outside the scan), the part is enqueued at 300 mm as before.
+        """
+        item = self.camera_item
+        if item is None:
+            self.track_seq += 1
+            item = {"track_id": f"TRK-{self.track_seq:06d}", "pos_mm": CAMERA_POS_MM, "actuated": False}
+            self.fifo_queue.append(item)
+        item.update(
+            {
+                "serial_number": serial_number,
+                "product_recipe": product_recipe,
+                "edge_status": edge_status,
+                "edge_defect_class": edge_defect_class,
+                "plc_action": plc_action,
+                "inspected": True,
+            }
+        )
+        return item
+
+    def _agv_request(self, target: str):
+        mh = self.udts["UDT_MaterialHandling"]
+        busy_with = mh["AGV_Target"] if mh["AGV_State"] != "PARKED" else ""
+        if target != busy_with and target not in self.agv_queue:
+            self.agv_queue.append(target)
+
+    def _agv_finish_swap(self, target: str):
+        mh = self.udts["UDT_MaterialHandling"]
+        rej = self.udts["UDT_RejectActuator"]
+        if target == "REJECT":
+            rej["Bin_Count"] = 0
+            rej["Bin_Level_Pct"] = 0.0
+        elif target == "OK":
+            mh["OK_Bin_Count"] = 0
+        elif target == "INFEED":
+            mh["Infeed_Count"] = mh["Infeed_Capacity"]
+        mh["AGV_Swaps_Total"] += 1
+
+    def _step_agv(self, dt: float):
+        """AGV tote logistics: dock -> station -> swap totes -> dock."""
+        mh = self.udts["UDT_MaterialHandling"]
+        rej = self.udts["UDT_RejectActuator"]
+
+        if mh["AGV_Auto_Mode"]:
+            if rej["Bin_Count"] >= rej["Bin_Capacity"]:
+                self._agv_request("REJECT")
+            if mh["OK_Bin_Count"] >= mh["OK_Bin_Capacity"]:
+                self._agv_request("OK")
+            if mh["Infeed_Count"] <= INFEED_CALL_AHEAD:
+                self._agv_request("INFEED")
+        else:
+            self.agv_queue.clear()
+
+        state = mh["AGV_State"]
+        leg = max(1.0, float(mh["AGV_Leg_Time_s"]))
+        swap = max(1.0, float(mh["AGV_Swap_Time_s"]))
+        pct = float(mh["AGV_Progress_Pct"])
+
+        if state == "PARKED":
+            if self.agv_queue:
+                mh["AGV_Target"] = self.agv_queue.pop(0)
+                mh["AGV_State"] = "TO_STATION"
+                mh["AGV_Progress_Pct"] = 0.0
+        elif state == "TO_STATION":
+            pct = min(100.0, pct + dt / leg * 100.0)
+            mh["AGV_Progress_Pct"] = round(pct, 1)
+            if pct >= 100.0:
+                # Do not pull the infeed tote while the robot is reaching into it
+                robot_in_tote = mh["AGV_Target"] == "INFEED" and self.robot_pct > 0.0 and not self.robot_holding
+                if not robot_in_tote:
+                    mh["AGV_State"] = "SWAP"
+                    mh["AGV_Progress_Pct"] = 0.0
+        elif state == "SWAP":
+            pct = min(100.0, pct + dt / swap * 100.0)
+            mh["AGV_Progress_Pct"] = round(pct, 1)
+            if pct >= 100.0:
+                self._agv_finish_swap(mh["AGV_Target"])
+                mh["AGV_State"] = "RETURN"
+                mh["AGV_Progress_Pct"] = 0.0
+        elif state == "RETURN":
+            pct = min(100.0, pct + dt / leg * 100.0)
+            mh["AGV_Progress_Pct"] = round(pct, 1)
+            if pct >= 100.0:
+                mh["AGV_State"] = "PARKED"
+                mh["AGV_Target"] = ""
+                mh["AGV_Progress_Pct"] = 0.0
+        mh["AGV_Queue"] = ",".join(self.agv_queue)
+
+    def _step_robot(self, dt: float, running: bool, cycle_s: float):
+        """6-axis robot: pick a part from the infeed tote and place it on the belt at 0 mm."""
+        mh = self.udts["UDT_MaterialHandling"]
+        mh["Robot_Cycle_Time_s"] = round(cycle_s, 2)
+        if not running:
+            mh["Robot_State"] = "STOPPED"
+            return
+        pct = self.robot_pct
+        infeed_swapping = mh["AGV_Target"] == "INFEED" and mh["AGV_State"] == "SWAP"
+
+        if not self.robot_holding and pct == 0.0:
+            if mh["Infeed_Count"] <= 0 or infeed_swapping:
+                mh["Robot_State"] = "WAIT_PARTS"
+                return
+            agv_waiting = mh["AGV_Target"] == "INFEED" and mh["AGV_State"] == "TO_STATION" and mh["AGV_Progress_Pct"] >= 100.0
+            if agv_waiting:
+                mh["Robot_State"] = "WAIT_PARTS"
+                return
+
+        new_pct = pct + dt / max(0.5, cycle_s)
+        if not self.robot_holding and new_pct >= ROBOT_GRIP_AT:
+            self.robot_holding = True
+            mh["Infeed_Count"] = max(0, mh["Infeed_Count"] - 1)
+
+        if new_pct >= 1.0:
+            # Keep a minimum pitch on the belt before releasing the next part
+            if any(it["pos_mm"] < INFEED_POS_MM + 150.0 for it in self.fifo_queue):
+                new_pct = 0.999
+            else:
+                self.track_seq += 1
+                self.fifo_queue.append(
+                    {
+                        "track_id": f"TRK-{self.track_seq:06d}",
+                        "serial_number": None,
+                        "product_recipe": self.udts["UDT_ProductionBatch"]["Active_Recipe"],
+                        "edge_status": "PENDING",
+                        "edge_defect_class": "PENDING",
+                        "plc_action": "PENDING",
+                        "pos_mm": INFEED_POS_MM,
+                        "actuated": False,
+                        "inspected": False,
+                    }
+                )
+                self.robot_holding = False
+                mh["Robot_Picks_Total"] += 1
+                new_pct = 0.0
+
+        self.robot_pct = new_pct
+        mh["Robot_Cycle_Pct"] = round(new_pct * 100.0, 1)
+        mh["Robot_State"] = "IDLE" if new_pct == 0.0 else ("PICK" if new_pct < 0.5 else "PLACE")
 
     def step_scan(self, on_camera_trigger_cb: Optional[Callable[[], Dict[str, Any]]] = None) -> Optional[Dict[str, Any]]:
         """Executes one PLC scan cycle, advancing belt encoder, FIFO tracking, and OEE."""
@@ -230,10 +449,26 @@ class SoftPLCController:
         batch["Scenario_Dirty_Lens"] = self.scenario_dirty_lens_drift
         batch["Scenario_Cloud_Offline"] = self.scenario_cloud_outage
 
+        mh = self.udts["UDT_MaterialHandling"]
+        pes = self.udts["UDT_PhotoSensors"]
+
         # 1. Interlocks & Run State
         bin_full = rej["Bin_Count"] >= rej["Bin_Capacity"]
-        running = bool(conv["Run_Cmd"]) and not bool(conv["E_Stop_Active"]) and not bin_full
+        ok_full = mh["OK_Bin_Count"] >= mh["OK_Bin_Capacity"]
+        running = bool(conv["Run_Cmd"]) and not bool(conv["E_Stop_Active"]) and not bin_full and not ok_full
         conv["Running_FB"] = running
+        if conv["E_Stop_Active"]:
+            mh["Line_Block_Reason"] = "E_STOP"
+        elif bin_full:
+            mh["Line_Block_Reason"] = "REJECT_BIN_FULL"
+        elif ok_full:
+            mh["Line_Block_Reason"] = "OK_BIN_FULL"
+        elif not conv["Run_Cmd"]:
+            mh["Line_Block_Reason"] = "STOPPED"
+        elif mh["Infeed_Count"] <= 0 and not self.robot_holding:
+            mh["Line_Block_Reason"] = "INFEED_EMPTY"
+        else:
+            mh["Line_Block_Reason"] = ""
 
         if running:
             self.run_time_sec += dt
@@ -250,42 +485,82 @@ class SoftPLCController:
 
         if rej["Solenoid_Active"] and now >= self.piston_off_at:
             rej["Solenoid_Active"] = False
+        if cam["Trigger_Pulse"] and now >= self.trigger_off_at:
+            cam["Trigger_Pulse"] = False
 
-        # 2. Advance parts in FIFO queue along conveyor
+        interval_sec = 60.0 / max(5.0, float(conv["Speed_PPM_SP"]))
+        effective_interval = max(1.6, min(4.2, interval_sec))
+
+        # 2. Material handling: AGV logistics, then the infeed robot places parts at 0 mm.
+        #    Without a vision callback there is nothing to inspect, so the robot holds.
+        self._step_agv(dt)
+        self._step_robot(dt, running and on_camera_trigger_cb is not None, effective_interval)
+
+        # 3. Advance parts in FIFO queue along conveyor; camera fires as a part crosses 300 mm
+        triggered_inspection = None
         remaining_fifo = []
-        for item in self.fifo_queue:
+        for item in list(self.fifo_queue):
+            prev_pos = item["pos_mm"]
             if running:
                 item["pos_mm"] = round(item["pos_mm"] + conv["Belt_Speed_mm_s"] * dt, 1)
-            if not item.get("actuated") and item["pos_mm"] >= 1100.0:
+            if (
+                not item.get("inspected", True)
+                and prev_pos < CAMERA_POS_MM <= item["pos_mm"]
+                and on_camera_trigger_cb is not None
+            ):
+                cam["Trigger_Pulse"] = True
+                self.trigger_off_at = now + 0.15
+                cam["Trigger_Count"] += 1
+                self.camera_item = item
+                try:
+                    triggered_inspection = on_camera_trigger_cb()
+                finally:
+                    self.camera_item = None
+            # Photo-eye before the pusher: count each part as it enters the beam
+            if prev_pos < PE_PUSHER_POS_MM - PE_BLOCK_HALF_MM <= item["pos_mm"]:
+                pes["PE_Pusher_Count"] += 1
+            # Photo-eye at the outfeed end: counts parts entering the OK tote
+            if item.get("plc_action") == "PASS_CONVEYOR" and prev_pos < PE_OK_POS_MM <= item["pos_mm"]:
+                pes["PE_OKBin_Count"] += 1
+                mh["OK_Bin_Count"] = min(mh["OK_Bin_Capacity"], mh["OK_Bin_Count"] + 1)
+            if not item.get("actuated") and item["pos_mm"] >= PUSHER_POS_MM:
                 item["actuated"] = True
+                if not item.get("inspected", True):
+                    # No verdict reached the PLC before the pusher: fail-safe reject
+                    item["plc_action"] = "REJECT_WATCHDOG"
+                    rej["Watchdog_Trips"] += 1
                 if item["plc_action"] in ("REJECT_PNEUMATIC", "REJECT_WATCHDOG"):
                     rej["Solenoid_Active"] = True
                     self.piston_off_at = now + 0.35
                     rej["Reject_Total"] += 1
-                    rej["Bin_Count"] = min(rej["Bin_Capacity"], rej["Bin_Count"] + 1)
-                    rej["Bin_Level_Pct"] = round((rej["Bin_Count"] / rej["Bin_Capacity"]) * 100.0, 1)
                     rej["Last_PLC_Action"] = item["plc_action"]
+                    # the part reaches the reject tote entry photo-eye after sliding down the chute
+                    self.chute_arrivals.append(now + CHUTE_TRAVEL_S)
                 else:
                     rej["Pass_Total"] += 1
                     rej["Last_PLC_Action"] = "PASS_CONVEYOR"
-            if item["pos_mm"] < 1450.0:
+            if item["pos_mm"] < OUTFEED_POS_MM:
                 remaining_fifo.append(item)
 
         self.fifo_queue = remaining_fifo
-        conv["FIFO_Queue_Depth"] = len(self.fifo_queue)
+        pes["PE_Pusher_Blocked"] = any(abs(it["pos_mm"] - PE_PUSHER_POS_MM) <= PE_BLOCK_HALF_MM for it in self.fifo_queue)
+        pes["PE_OKBin_Blocked"] = any(
+            it.get("plc_action") == "PASS_CONVEYOR" and PE_OK_POS_MM - PE_BLOCK_HALF_MM <= it["pos_mm"] for it in self.fifo_queue
+        )
 
-        # 3. Check if next part triggers Camera Sensor at x = 300 mm
-        triggered_inspection = None
-        if running and on_camera_trigger_cb is not None:
-            interval_sec = 60.0 / max(5.0, conv["Actual_PPM"])
-            effective_interval = max(1.6, min(4.2, interval_sec))
-            if (now - self.last_spawn_ts) >= effective_interval:
-                self.last_spawn_ts = now
-                cam["Trigger_Pulse"] = True
-                cam["Trigger_Count"] += 1
-                triggered_inspection = on_camera_trigger_cb()
-        else:
-            cam["Trigger_Pulse"] = False
+        # Reject tote entry photo-eye (through-beam across the chute exit): it counts the bin
+        arrived = [t for t in self.chute_arrivals if t <= now]
+        if arrived:
+            self.chute_arrivals = [t for t in self.chute_arrivals if t > now]
+            for _ in arrived:
+                pes["PE_RejectBin_Count"] += 1
+                rej["Bin_Count"] = min(rej["Bin_Capacity"], rej["Bin_Count"] + 1)
+            rej["Bin_Level_Pct"] = round((rej["Bin_Count"] / rej["Bin_Capacity"]) * 100.0, 1)
+            pes["PE_RejectBin_Blocked"] = True
+            self.reject_pe_off_at = now + 0.2
+        elif pes["PE_RejectBin_Blocked"] and now >= self.reject_pe_off_at:
+            pes["PE_RejectBin_Blocked"] = False
+        conv["FIFO_Queue_Depth"] = len(self.fifo_queue)
 
         # 4. Compute Real-Time OEE
         avail = min(100.0, (self.run_time_sec / max(1.0, self.planned_time_sec)) * 100.0)
