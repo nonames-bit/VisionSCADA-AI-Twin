@@ -20,11 +20,39 @@ from pathlib import Path
 from typing import Dict, Any
 
 from soft_plc_opcua import SoftPLCController, PLC_WRITABLE_TAGS
+from ignition_mlops_view import VIEW_NAME as MLOPS_VIEW_NAME, build_mlops_view
 
 BASE_DIR = Path(__file__).resolve().parent
 IGN_DIR = BASE_DIR / "ignition"
 VIEW_NAME = "Celda_Vision_AOI_MLOps"
 VIEW_DIR = IGN_DIR / "views" / VIEW_NAME
+MLOPS_VIEW_DIR = IGN_DIR / "views" / MLOPS_VIEW_NAME
+
+
+def _resource_json(sig: str) -> Dict[str, Any]:
+    return {
+        "scope": "G",
+        "version": 1,
+        "restricted": False,
+        "overridable": True,
+        "files": ["view.json"],
+        "attributes": {
+            "lastModificationSignature": sig,
+            "lastModification": {"actor": "admin", "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+        },
+    }
+
+
+def write_mlops_view() -> Dict[str, Any]:
+    """Writes ignition/views/MLOps_Entrenamiento/{view,resource}.json (no Docker needed)."""
+    MLOPS_VIEW_DIR.mkdir(parents=True, exist_ok=True)
+    view_bytes = json.dumps(build_mlops_view(), indent=2, ensure_ascii=False).encode("utf-8")
+    sig = hashlib.sha256(view_bytes).hexdigest()
+    view_file = MLOPS_VIEW_DIR / "view.json"
+    res_file = MLOPS_VIEW_DIR / "resource.json"
+    view_file.write_bytes(view_bytes)
+    res_file.write_text(json.dumps(_resource_json(sig), indent=2), encoding="utf-8")
+    return {"view_file": view_file, "res_file": res_file, "sig": sig}
 
 
 def _build_native_spc_and_map_svg_expr() -> str:
@@ -1008,6 +1036,14 @@ def _deploy_to_single_project(
     subprocess.run(["docker", "cp", str(local_res_file), f"{container_name}:{target_dir}/resource.json"], check=True, capture_output=True)
     subprocess.run(["docker", "cp", str(local_view_file), f"{container_name}:{resources_store}/{sig}"], check=True, capture_output=True)
 
+    # MLOps view (page /mlops)
+    mlops = write_mlops_view()
+    mlops_dir = f"{target_persp}/views/{MLOPS_VIEW_NAME}"
+    subprocess.run(["docker", "exec", container_name, "mkdir", "-p", mlops_dir], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(mlops["view_file"]), f"{container_name}:{mlops_dir}/view.json"], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(mlops["res_file"]), f"{container_name}:{mlops_dir}/resource.json"], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(mlops["view_file"]), f"{container_name}:{resources_store}/{mlops['sig']}"], check=True, capture_output=True)
+
     # Read existing page-config/config.json if present, else create a clean one
     res = subprocess.run(["docker", "exec", container_name, "cat", page_cfg_path], capture_output=True, text=True)
     if res.returncode == 0 and res.stdout.strip():
@@ -1017,6 +1053,7 @@ def _deploy_to_single_project(
 
     pages = page_cfg.setdefault("pages", {})
     pages["/vision-aoi"] = {"viewPath": VIEW_NAME}
+    pages["/mlops"] = {"title": "VisionSCADA AI Twin - MLOps", "viewPath": MLOPS_VIEW_NAME}
     pages["/"] = {"title": "VisionSCADA AI Twin - Celda AOI & MLOps", "viewPath": VIEW_NAME}
 
     cfg_bytes = json.dumps(page_cfg, indent=2).encode("utf-8")
@@ -1100,6 +1137,7 @@ def deploy_to_ignition_container(container_name: str = "twin-ignition", project_
             "http://localhost:8089/data/perspective/client/VisionSCADA_AI_Twin",
             "http://localhost:8089/data/perspective/client/VisionSCADA_AI_Twin/vision-aoi",
             "http://localhost:8089/data/perspective/client/DigitalTwin/vision-aoi",
+            "http://localhost:8089/data/perspective/client/VisionSCADA_AI_Twin/mlops",
         ],
         "designer_view": f"Perspective -> Views -> {VIEW_NAME}",
         "tags_export": str(tags_file),

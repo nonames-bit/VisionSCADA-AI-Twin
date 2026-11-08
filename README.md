@@ -39,17 +39,67 @@ flowchart LR
    - If Edge inference exceeds `350 ms`, the **Soft-PLC Watchdog** triggers a fail-safe reject (`REJECT_WATCHDOG`) and raises a `CRITICAL` ISA-18.2 alarm.
    - Suspect or defective frames are queued asynchronously to the **Cloud Vision Auditor (`~850 ms`)** with full **Store-and-Forward buffering** if internet connectivity drops.
 2. **Multi-Recipe Selector (3 Datasets = 3 Dynamic 3D Meshes + 6 Trained Models)**:
-   - `CAST_100`: Metallic cast-iron pump impellers (`OK`, `Porosity_Pinhole`, `Shrinkage_Crack`, `Flash_Burr`).
-   - `PACK_200`: Back-lit pharmaceutical glass vials & capsules (`OK`, `Neck_Crack`, `Liquid_Contamination`, `Seal_Deformation`).
-   - `PCB_300`: 4-layer SMT electronic boards (`OK`, `Copper_Short`, `Open_Trace`, `Mousebite_Spur`).
+   - `CAST_100`: Pilot Technocast cast-iron impellers (`OK`, `Casting_Defect`). The public dataset is only good/defective.
+   - `PACK_200`: PerceptiLabs Pill-Defects (`OK`, `Pill_Defect`). The public dataset is only normal/defect.
+   - `PCB_300`: DeepPCB patches with real annotated defect types (`OK`, `Open`, `Short`, `Mousebite`, `Spur`, `Copper`, `Pin_Hole`).
 3. **4 Ignition SCADA UDTs (`ignition/vision_scada_udts_and_tags.json`)**:
    - `UDT_ConveyorAxis`, `UDT_VisionCamera`, `UDT_RejectActuator`, `UDT_ProductionBatch`.
 4. **SPC Carta $p$ + Western Electric Rules & ISA-18.2 Alarm Pipeline**:
    - Real-time subgroup calculation of $p_i$, $\bar{p}$, $\text{UCL} (3\sigma)$, and automatic evaluation of Western Electric rules (`RULE_1_3SIGMA`, `RULE_2_2OF3_2SIGMA`, `RULE_4_RUN_ABOVE_MEAN`).
-5. **Closed-Loop MLOps (Human-in-the-Loop, Shadow Mode & Optical Drift PSI)**:
-   - Compare `v1.0.0 (PRODUCTION)` against `v1.1.0-shadow (SHADOW)` in real time, re-label parts from the HMI (`human_feedback`), and promote Shadow to Production (`RBAC: ML_Engineer`).
+5. **Closed-Loop MLOps (HITL, Shadow Mode, real PSI drift, MLflow + DVC)**: see [MLOps](#-mlops-reentrenamiento-desde-ignition-y-el-gemelo-3d) below.
 6. **Guardrailed Read-Only SQL Copilot (`copilot_ro`)**:
    - Connects to PostgreSQL using a strictly `SELECT`-only database role, cites every SQL query executed, and emits RBAC-gated setpoint recommendations requiring human confirmation.
+
+---
+
+## 🧠 MLOps: reentrenamiento desde Ignition y el gemelo 3D
+
+```
+ gemelo 3D (/cell3d, tecla M)  ─┐                         ┌─► MLflow (:5000) runs, métricas, Model Registry
+ Ignition Perspective /mlops   ─┼─► API /api/mlops/* ─► trainer ─┤   alias champion / challenger
+ HITL (/api/mlops/feedback)    ─┘     imágenes nuevas      │      └─► DVC dvc add + push ─► MinIO s3://dvc-store
+                                      storage/datasets/     └─► models/registry.json ─► edge recarga (SHADOW)
+```
+
+**Qué es real y qué no**
+
+| Pieza | Estado |
+|---|---|
+| Edge ML (sklearn RF/GB sobre 18 features ópticas) | Real |
+| Split train / test / holdout | Real: por hash SHA-256 del contenido (70/15/15). Una imagen nunca cae en dos splits; la producción del gemelo 3D usa solo el holdout |
+| Etiquetas | CAST/PACK binarias (los datasets no traen subtipos). PCB con los 6 tipos reales de DeepPCB, recortes alrededor de cada defecto con su caja real |
+| Drift PSI | Real: ventana móvil de 60 frames contra la referencia de entrenamiento del modelo en producción. Los umbrales se calibran al piso de ruido del dataset (bootstrap sobre el split de test) |
+| Auditor en la nube | Real con `GEMINI_API_KEY` (Gemini Flash, plan gratuito, limitado a `GEMINI_MAX_RPM`). Sin clave o por encima del límite: simulación etiquetada como `[SIMULADO]` |
+| Mapa de calor | Ya no se dibuja una caja inventada: solo cajas reales (PCB) o una franja con el veredicto |
+| Copiloto LLM | Sigue siendo por plantillas de palabras clave |
+
+**Puesta en marcha**
+
+```powershell
+pip install -r requirements.txt -r requirements-mlops.txt
+docker compose up -d minio minio-init mlflow          # MinIO :9000/:9090 y MLflow :5000
+copy .env.example .env                                # GEMINI_API_KEY opcional (https://aistudio.google.com/apikey)
+python download_real_datasets.py                      # datasets completos, reanudable (GITHUB_TOKEN opcional)
+python ignition_sync.py                               # despliega /vision-aoi y /mlops en Ignition + tags nuevos
+python server.py
+```
+
+La primera vez que arranca `server.py` entrena y registra **v1 (RandomForest, producción)** y **v2 (GradientBoosting, shadow)** por receta.
+Si cambias de dataset (por ejemplo después de descargar todo), reentrena con `Reentrenar TODAS` en `/mlops`.
+
+**Flujo de reentrenamiento**
+
+1. Agregar imágenes: en `/mlops` (pestaña *Dataset y etiquetado*), en el panel 🧠 del gemelo 3D (tecla `M`) o con la estación HITL del HMI web. Se pueden etiquetar la última pieza inspeccionada o subir archivos.
+2. `Reentrenar` (tag `UDT_VisionCamera/Retrain_Cmd` o `POST /api/mlops/retrain`). Corre en segundo plano: `dvc add` + `dvc push` del dataset, entrena RF y GB, evalúa en test, registra el mejor como **SHADOW** y lo loguea en MLflow con métricas, matriz de confusión, manifiesto exacto de imágenes y el puntero `datasets.dvc`.
+3. Comparar en vivo: el shadow evalúa cada pieza en paralelo (`Shadow_Agreement_Pct`).
+4. `Promover` (tag `Promote_Shadow_Cmd` o `POST /api/mlops/promote`): el shadow pasa a producción, el anterior queda como shadow y los alias `champion`/`challenger` se actualizan en MLflow.
+
+**Recuperar el dataset exacto de un modelo**: descarga `dataset/datasets.dvc` del run en MLflow, cópialo a `storage/datasets.dvc` y ejecuta `dvc pull storage/datasets.dvc`.
+Para que DVC suba a MinIO necesita `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` en `.env` (se pasan como credenciales S3). Haz commit de `storage/datasets.dvc` cuando quieras fijar una versión en git.
+
+**Ignition**: la vista `MLOps_Entrenamiento` (`/mlops`) tiene KPIs enlazados a tags OPC-UA, gráficas SVG de F1 por versión y PSI en vivo, tablas de versiones y dataset, File Upload y la UI de MLflow embebida.
+Ajusta en el Designer las custom props `apiGw` (backend visto desde el gateway, por defecto `http://host.docker.internal:8020`), `apiBrowser` y `mlflowUrl`.
+Vuelve a importar `ignition/vision_scada_udts_and_tags.json` para crear los tags nuevos (`Retrain_Cmd`, `MLOps_Job_State`, `Champion_F1`, `Dataset_Version`, `Drift_Status`, `Cloud_Mode`…).
 
 ---
 

@@ -2331,5 +2331,151 @@
     // Hook for automated screenshots / debugging
     window.__cell3d = { setQuality: q => { userChoseQuality = true; applyQuality(q); }, camera, controls, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, progs: renderer.info.programs.length }) };
   </script>
+  <!-- ==================== MLOps panel: label frames, upload images, retrain, promote ==================== -->
+  <style>
+    #mlopsToggle { position: fixed; right: 16px; bottom: 64px; z-index: 30; }
+    #mlopsPanel {
+      position: fixed; right: 16px; bottom: 104px; z-index: 30; width: 340px; max-height: calc(100vh - 140px);
+      overflow: auto; display: none; background: rgba(15, 23, 42, 0.94); border: 1px solid #1e293b;
+      border-left: 4px solid #a78bfa; border-radius: 10px; padding: 12px; color: #e2e8f0;
+      font: 12px 'Segoe UI', Inter, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    #mlopsPanel.open { display: block; }
+    #mlopsPanel h4 { margin: 0 0 6px; font-size: 13px; color: #c4b5fd; }
+    #mlopsPanel .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+    #mlopsPanel .kpi { flex: 1 1 45%; background: #0b1220; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 7px; }
+    #mlopsPanel .kpi b { display: block; font-size: 13px; color: #f8fafc; }
+    #mlopsPanel .kpi span { color: #94a3b8; font-size: 10px; }
+    #mlopsPanel select, #mlopsPanel input[type=file] { background: #0b1220; color: #e2e8f0; border: 1px solid #334155; border-radius: 5px; padding: 4px; font-size: 11px; max-width: 100%; }
+    #mlopsPanel button { background: #312e81; color: #fff; border: 1px solid #6366f1; border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 11px; }
+    #mlopsPanel button:hover { background: #4338ca; }
+    #mlopsPanel button.warn { background: #78350f; border-color: #f59e0b; }
+    #mlopsPanel img { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid #334155; background: #000; }
+    #mlopsPanel .msg { color: #a5b4fc; font-size: 11px; min-height: 14px; white-space: pre-wrap; }
+    #mlopsPanel .muted { color: #64748b; font-size: 10px; }
+  </style>
+  <button id="mlopsToggle" class="hud-btn" type="button" title="Tecla M">🧠 MLOps</button>
+  <div id="mlopsPanel" aria-label="MLOps">
+    <h4>🧠 MLOps · reentrenar desde el gemelo</h4>
+    <div class="row">
+      <div class="kpi"><span>PRODUCCIÓN</span><b id="mlChamp">--</b></div>
+      <div class="kpi"><span>SHADOW</span><b id="mlChall">--</b></div>
+      <div class="kpi"><span>DATASET</span><b id="mlData">--</b></div>
+      <div class="kpi"><span>DRIFT PSI</span><b id="mlPsi">--</b></div>
+    </div>
+    <div class="row">
+      <label class="muted">Rol</label>
+      <select id="mlRole">
+        <option value="ML_Engineer">ML_Engineer</option>
+        <option value="Quality_Engineer">Quality_Engineer (solo etiquetar)</option>
+      </select>
+    </div>
+    <h4>1 · Etiquetar la última pieza</h4>
+    <div class="row">
+      <img id="mlFrame" alt="último frame">
+      <div style="flex:1">
+        <div id="mlFrameInfo" class="muted">--</div>
+        <select id="mlFrameLabel" style="margin-top:6px;width:100%"></select>
+        <button id="mlAddFrame" type="button" style="margin-top:6px;width:100%">➕ Agregar al dataset</button>
+      </div>
+    </div>
+    <h4>2 · Subir imágenes nuevas</h4>
+    <div class="row">
+      <input id="mlFiles" type="file" accept="image/*" multiple>
+      <select id="mlUploadLabel"></select>
+      <button id="mlUpload" type="button">⬆️ Subir</button>
+    </div>
+    <h4>3 · Entrenar y desplegar</h4>
+    <div class="row">
+      <button id="mlRetrain" type="button">🔁 Reentrenar (→ SHADOW)</button>
+      <button id="mlPromote" class="warn" type="button">🚀 Promover SHADOW</button>
+    </div>
+    <div id="mlJob" class="msg"></div>
+    <div id="mlMsg" class="msg"></div>
+    <div class="muted" id="mlLinks"></div>
+  </div>
+  <script>
+  (function () {
+    const API = (location.port === '8020') ? '' : 'http://' + (location.hostname || '127.0.0.1') + ':8020';
+    const $ = id => document.getElementById(id);
+    const panel = $('mlopsPanel');
+    let last = null, classesKey = '';
+    const toggle = () => { panel.classList.toggle('open'); if (panel.classList.contains('open')) refresh(); };
+    $('mlopsToggle').addEventListener('click', toggle);
+    window.addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) toggle(); });
+    const say = (t, err) => { $('mlMsg').textContent = t; $('mlMsg').style.color = err ? '#fca5a5' : '#a5b4fc'; };
+    async function call(path, body) {
+      const r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      return j;
+    }
+    const user = () => ({ user_name: 'gemelo3d', user_role: $('mlRole').value });
+    function fillClasses(classes) {
+      const key = classes.join(',');
+      if (key === classesKey) return;
+      classesKey = key;
+      for (const sel of [$('mlFrameLabel'), $('mlUploadLabel')]) {
+        sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+      }
+    }
+    async function refresh() {
+      try {
+        const s = await call('/api/mlops/status');
+        const rs = s.recipe, ch = rs.champion, sh = rs.challenger;
+        fillClasses(rs.classes);
+        $('mlChamp').textContent = `${ch.version || '--'} · F1 ${(ch.metrics.f1_weighted || 0).toFixed(3)}`;
+        $('mlChall').textContent = `${sh.version || '--'} · F1 ${(sh.metrics.f1_weighted || 0).toFixed(3)}`;
+        $('mlData').textContent = `${rs.dataset.total} img (+${rs.dataset.new_since_champion} nuevas)`;
+        const d = s.drift || {};
+        $('mlPsi').textContent = d.status ? `${(d.psi || 0).toFixed(3)} ${d.status}` : '--';
+        $('mlPsi').style.color = d.status === 'DRIFT' ? '#f87171' : (d.status === 'WATCH' ? '#fbbf24' : '#34d399');
+        const j = s.job || {};
+        $('mlJob').textContent = `Job: ${j.state || 'IDLE'} ${j.message ? '· ' + j.message : ''}`;
+        last = s.last_inspection;
+        if (last && last.serial_number) {
+          $('mlFrame').src = API + '/' + last.image_rel_path + '?t=' + Date.now();
+          $('mlFrameInfo').innerHTML = `${last.serial_number} · edge: <b>${last.edge_defect_class}</b> (${(last.edge_confidence * 100).toFixed(0)}%)<br>origen: ${last.frame_source || ''}`;
+        }
+        const links = [];
+        if (s.mlflow.enabled) links.push(`<a style="color:#93c5fd" target="_blank" href="${s.mlflow.ui_url}">MLflow UI</a>`);
+        else links.push(`MLflow: ${s.mlflow.error || 'apagado'}`);
+        links.push(`DVC: ${s.dvc.enabled ? 'activo' : 'no inicializado'}`);
+        links.push(`Nube: ${s.cloud_auditor.mode}`);
+        $('mlLinks').innerHTML = links.join(' · ');
+      } catch (e) { say('Sin conexión con la API MLOps: ' + e.message, true); }
+    }
+    setInterval(() => { if (panel.classList.contains('open')) refresh(); }, 2500);
+    $('mlAddFrame').addEventListener('click', async () => {
+      if (!last) return say('Aún no hay piezas inspeccionadas', true);
+      try {
+        const r = await call('/api/mlops/label-frame', Object.assign({ serial_number: last.serial_number, label: $('mlFrameLabel').value }, user()));
+        say(`${r.created ? 'Agregada' : 'Ya existía'}: ${r.label} (split ${r.split})`); refresh();
+      } catch (e) { say(e.message, true); }
+    });
+    const toB64 = f => new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsDataURL(f); });
+    $('mlUpload').addEventListener('click', async () => {
+      const files = Array.from($('mlFiles').files || []);
+      if (!files.length) return say('Elige una o varias imágenes', true);
+      let ok = 0;
+      for (const f of files) {
+        try {
+          await call('/api/mlops/images', Object.assign({ label: $('mlUploadLabel').value, image_base64: await toB64(f), filename: f.name }, user()));
+          ok++; say(`Subiendo… ${ok}/${files.length}`);
+        } catch (e) { say(`${f.name}: ${e.message}`, true); }
+      }
+      say(`${ok}/${files.length} imágenes agregadas como ${$('mlUploadLabel').value}`); $('mlFiles').value = ''; refresh();
+    });
+    $('mlRetrain').addEventListener('click', async () => {
+      try { const r = await call('/api/mlops/retrain', Object.assign({ reason: 'gemelo 3D' }, user())); say('Reentrenamiento iniciado (job ' + r.job.job_id + ')'); refresh(); }
+      catch (e) { say(e.message, true); }
+    });
+    $('mlPromote').addEventListener('click', async () => {
+      if (!confirm('¿Promover el modelo SHADOW a PRODUCCIÓN? Pasará a decidir el rechazo en el PLC.')) return;
+      try { const r = await call('/api/mlops/promote', user()); say(`Promovido ${r.promoted_version} (antes ${r.previous_version})`); refresh(); }
+      catch (e) { say(e.message, true); }
+    });
+  })();
+  </script>
 </body>
 </html>

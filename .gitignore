@@ -9,3 +9,11 @@ models/*.joblib
 models/*.onnx
 *.log
 .pytest_cache/
+
+# MLOps (datasets are versioned with DVC, not git)
+storage/datasets/
+storage/feature_cache/
+models/registry.json
+models/*/
+mlruns/
+mlartifacts/

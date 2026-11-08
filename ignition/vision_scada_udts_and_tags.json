@@ -299,6 +299,114 @@
           "opcServer": "BrewSCADA_OPCUA",
           "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Promote_Shadow_Cmd",
           "value": false
+        },
+        {
+          "name": "Retrain_Cmd",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Retrain_Cmd",
+          "value": false
+        },
+        {
+          "name": "MLOps_Job_State",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.MLOps_Job_State",
+          "value": "IDLE"
+        },
+        {
+          "name": "MLOps_Job_Message",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.MLOps_Job_Message",
+          "value": ""
+        },
+        {
+          "name": "Champion_F1",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Champion_F1",
+          "value": 0.0
+        },
+        {
+          "name": "Challenger_F1",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Challenger_F1",
+          "value": 0.0
+        },
+        {
+          "name": "Dataset_Version",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Dataset_Version",
+          "value": ""
+        },
+        {
+          "name": "Dataset_Images",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Dataset_Images",
+          "value": 0
+        },
+        {
+          "name": "Dataset_New_Images",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Dataset_New_Images",
+          "value": 0
+        },
+        {
+          "name": "Drift_Status",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Drift_Status",
+          "value": "WARMUP"
+        },
+        {
+          "name": "Drift_Top_Feature",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Drift_Top_Feature",
+          "value": ""
+        },
+        {
+          "name": "Drift_PSI_Alarm",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Drift_PSI_Alarm",
+          "value": 0.2
+        },
+        {
+          "name": "Cloud_Mode",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Cloud_Mode",
+          "value": ""
         }
       ]
     },

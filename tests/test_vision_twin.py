@@ -106,9 +106,9 @@ def test_api_rbac_and_store_and_forward():
             "serial_number": "TEST-SF-01",
             "product_recipe": "CAST_100",
             "edge_status": "NOK",
-            "edge_defect_class": "Porosity_Pinhole",
+            "edge_defect_class": "Casting_Defect",
             "edge_confidence": 0.88,
-            "ground_truth_class": "Porosity_Pinhole",
+            "ground_truth_class": "Casting_Defect",
         }
     )
     assert auditor.process_next_in_queue() is None

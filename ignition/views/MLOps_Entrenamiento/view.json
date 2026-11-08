@@ -1,0 +1,2004 @@
+{
+  "custom": {
+    "apiGw": "http://host.docker.internal:8020",
+    "apiBrowser": "http://127.0.0.1:8020",
+    "mlflowUrl": "http://localhost:5000",
+    "role": "ML_Engineer",
+    "recipe": "CAST_100",
+    "frameLabel": "OK",
+    "uploadLabel": "OK",
+    "lastMsg": "",
+    "classes": [],
+    "Edge_Model_Version": "",
+    "Shadow_Model_Version": "",
+    "Champion_F1": 0,
+    "Challenger_F1": 0,
+    "Dataset_Version": "",
+    "Dataset_Images": 0,
+    "Dataset_New_Images": 0,
+    "Drift_PSI_Score": 0,
+    "Drift_Status": "",
+    "Drift_Top_Feature": "",
+    "Drift_PSI_Alarm": 0,
+    "MLOps_Job_State": "",
+    "MLOps_Job_Message": "",
+    "Cloud_Mode": "",
+    "Cloud_Diagnosis": "",
+    "Last_Raw_URL": "",
+    "Last_Serial": "",
+    "Last_Defect_Class": "",
+    "Last_Confidence": 0,
+    "Shadow_Agreement_Pct": 0
+  },
+  "params": {},
+  "propConfig": {
+    "custom.recipe": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Active_Recipe"
+        }
+      }
+    },
+    "custom.classes": {
+      "binding": {
+        "type": "expr",
+        "config": {
+          "expression": "{view.custom.recipe} + toStr(now(15000))"
+        },
+        "transforms": [
+          {
+            "type": "script",
+            "code": "\turl = self.view.custom.apiGw + \"/api/mlops/status?recipe=\" + self.view.custom.recipe\n\ttry:\n\t\tst = system.util.jsonDecode(system.net.httpGet(url, 3000, 5000))\n\t\treturn [{'value': c, 'label': c} for c in st['recipe']['classes']]\n\texcept Exception, e:\n\t\treturn [{'value': 'OK', 'label': 'OK'}]"
+          }
+        ]
+      }
+    },
+    "custom.Edge_Model_Version": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Edge_Model_Version"
+        }
+      }
+    },
+    "custom.Shadow_Model_Version": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Shadow_Model_Version"
+        }
+      }
+    },
+    "custom.Champion_F1": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Champion_F1"
+        }
+      }
+    },
+    "custom.Challenger_F1": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Challenger_F1"
+        }
+      }
+    },
+    "custom.Dataset_Version": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Dataset_Version"
+        }
+      }
+    },
+    "custom.Dataset_Images": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Dataset_Images"
+        }
+      }
+    },
+    "custom.Dataset_New_Images": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Dataset_New_Images"
+        }
+      }
+    },
+    "custom.Drift_PSI_Score": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_PSI_Score"
+        }
+      }
+    },
+    "custom.Drift_Status": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_Status"
+        }
+      }
+    },
+    "custom.Drift_Top_Feature": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_Top_Feature"
+        }
+      }
+    },
+    "custom.Drift_PSI_Alarm": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_PSI_Alarm"
+        }
+      }
+    },
+    "custom.MLOps_Job_State": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/MLOps_Job_State"
+        }
+      }
+    },
+    "custom.MLOps_Job_Message": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/MLOps_Job_Message"
+        }
+      }
+    },
+    "custom.Cloud_Mode": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Cloud_Mode"
+        }
+      }
+    },
+    "custom.Cloud_Diagnosis": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Cloud_Diagnosis"
+        }
+      }
+    },
+    "custom.Last_Raw_URL": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Raw_URL"
+        }
+      }
+    },
+    "custom.Last_Serial": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Serial"
+        }
+      }
+    },
+    "custom.Last_Defect_Class": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Defect_Class"
+        }
+      }
+    },
+    "custom.Last_Confidence": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Last_Confidence"
+        }
+      }
+    },
+    "custom.Shadow_Agreement_Pct": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Shadow_Agreement_Pct"
+        }
+      }
+    }
+  },
+  "props": {
+    "defaultSize": {
+      "width": 1620,
+      "height": 1020
+    }
+  },
+  "root": {
+    "meta": {
+      "name": "root"
+    },
+    "type": "ia.container.flex",
+    "props": {
+      "direction": "column",
+      "style": {
+        "backgroundColor": "#060A12",
+        "color": "#F8FAFC",
+        "fontFamily": "'Segoe UI', 'Inter', sans-serif",
+        "padding": "8px 12px",
+        "gap": "8px",
+        "overflow": "auto"
+      }
+    },
+    "children": [
+      {
+        "meta": {
+          "name": "Header"
+        },
+        "type": "ia.container.flex",
+        "position": {
+          "basis": "56px",
+          "grow": 0,
+          "shrink": 0
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "backgroundColor": "#0F172A",
+            "border": "1px solid #1E293B",
+            "borderLeft": "4px solid #A78BFA",
+            "borderRadius": "8px",
+            "padding": "8px 10px",
+            "gap": "6px"
+          }
+        },
+        "children": [
+          {
+            "meta": {
+              "name": "Title"
+            },
+            "type": "ia.display.label",
+            "position": {
+              "basis": "auto",
+              "shrink": 0
+            },
+            "props": {
+              "text": "🧠 MLOps · Reentrenamiento desde el gemelo digital · MLflow + DVC + PSI real",
+              "style": {
+                "color": "#F8FAFC",
+                "fontSize": "15px",
+                "fontWeight": "800"
+              }
+            }
+          },
+          {
+            "meta": {
+              "name": "Sub"
+            },
+            "type": "ia.display.label",
+            "position": {
+              "basis": "auto",
+              "shrink": 0
+            },
+            "props": {
+              "text": "",
+              "style": {
+                "color": "#38BDF8",
+                "fontSize": "11px"
+              }
+            },
+            "propConfig": {
+              "props.text": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "concat('Receta activa ', {view.custom.recipe}, ' · Split por hash SHA-256 70/15/15 (sin fuga train/test) · Producción = holdout nunca visto · Nube: ', {view.custom.Cloud_Mode})"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "meta": {
+          "name": "KPI_Row"
+        },
+        "type": "ia.container.flex",
+        "position": {
+          "basis": "74px",
+          "shrink": 0
+        },
+        "props": {
+          "direction": "row",
+          "wrap": "wrap",
+          "style": {
+            "gap": "8px"
+          }
+        },
+        "children": [
+          {
+            "meta": {
+              "name": "KPI_Champion"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "170px",
+              "grow": 1,
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #1E293B",
+                "borderLeft": "4px solid #10B981",
+                "borderRadius": "8px",
+                "padding": "8px 10px",
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Champion_Title"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "PRODUCCIÓN (champion)",
+                  "style": {
+                    "color": "#94A3B8",
+                    "fontSize": "10px",
+                    "fontWeight": "700"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Champion_Value"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "",
+                  "style": {
+                    "color": "#F8FAFC",
+                    "fontSize": "16px",
+                    "fontWeight": "800"
+                  }
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat({view.custom.Edge_Model_Version}, '  ·  F1 ', numberFormat({view.custom.Champion_F1}, '0.000'))"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "KPI_Challenger"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "170px",
+              "grow": 1,
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #1E293B",
+                "borderLeft": "4px solid #38BDF8",
+                "borderRadius": "8px",
+                "padding": "8px 10px",
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Challenger_Title"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "SHADOW (challenger)",
+                  "style": {
+                    "color": "#94A3B8",
+                    "fontSize": "10px",
+                    "fontWeight": "700"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Challenger_Value"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "",
+                  "style": {
+                    "color": "#F8FAFC",
+                    "fontSize": "16px",
+                    "fontWeight": "800"
+                  }
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat({view.custom.Shadow_Model_Version}, '  ·  F1 ', numberFormat({view.custom.Challenger_F1}, '0.000'), '  ·  acuerdo ', numberFormat({view.custom.Shadow_Agreement_Pct}, '0'), '%')"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "KPI_Dataset"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "170px",
+              "grow": 1,
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #1E293B",
+                "borderLeft": "4px solid #A78BFA",
+                "borderRadius": "8px",
+                "padding": "8px 10px",
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Dataset_Title"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "DATASET (DVC)",
+                  "style": {
+                    "color": "#94A3B8",
+                    "fontSize": "10px",
+                    "fontWeight": "700"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Dataset_Value"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "",
+                  "style": {
+                    "color": "#F8FAFC",
+                    "fontSize": "16px",
+                    "fontWeight": "800"
+                  }
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat({view.custom.Dataset_Images}, ' img  (+', {view.custom.Dataset_New_Images}, ' nuevas)  ·  ', {view.custom.Dataset_Version})"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "KPI_Drift"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "170px",
+              "grow": 1,
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #1E293B",
+                "borderLeft": "4px solid #F59E0B",
+                "borderRadius": "8px",
+                "padding": "8px 10px",
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Drift_Title"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "DRIFT PSI REAL",
+                  "style": {
+                    "color": "#94A3B8",
+                    "fontSize": "10px",
+                    "fontWeight": "700"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Drift_Value"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "",
+                  "style": {
+                    "color": "#F8FAFC",
+                    "fontSize": "16px",
+                    "fontWeight": "800"
+                  }
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "concat(numberFormat({view.custom.Drift_PSI_Score}, '0.000'), '  ', {view.custom.Drift_Status}, '  (', {view.custom.Drift_Top_Feature}, ')')"
+                      }
+                    }
+                  },
+                  "props.style.color": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "case({view.custom.Drift_Status}, 'DRIFT', '#F87171', 'WATCH', '#FBBF24', 'STABLE', '#34D399', '#94A3B8')"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "KPI_Job"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "170px",
+              "grow": 1,
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #1E293B",
+                "borderLeft": "4px solid #6366F1",
+                "borderRadius": "8px",
+                "padding": "8px 10px",
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Job_Title"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "REENTRENAMIENTO",
+                  "style": {
+                    "color": "#94A3B8",
+                    "fontSize": "10px",
+                    "fontWeight": "700"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Job_Value"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "",
+                  "style": {
+                    "color": "#F8FAFC",
+                    "fontSize": "16px",
+                    "fontWeight": "800"
+                  }
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "{view.custom.MLOps_Job_State}"
+                      }
+                    }
+                  },
+                  "props.style.color": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "case({view.custom.MLOps_Job_State}, 'RUNNING', '#FBBF24', 'FAILED', '#F87171', 'DONE', '#34D399', '#E2E8F0')"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "KPI_Cloud"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "basis": "170px",
+              "grow": 1,
+              "shrink": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "border": "1px solid #1E293B",
+                "borderLeft": "4px solid #0EA5E9",
+                "borderRadius": "8px",
+                "padding": "8px 10px",
+                "gap": "6px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Cloud_Title"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "AUDITOR NUBE",
+                  "style": {
+                    "color": "#94A3B8",
+                    "fontSize": "10px",
+                    "fontWeight": "700"
+                  }
+                }
+              },
+              {
+                "meta": {
+                  "name": "Cloud_Value"
+                },
+                "type": "ia.display.label",
+                "position": {
+                  "basis": "auto",
+                  "shrink": 0
+                },
+                "props": {
+                  "text": "",
+                  "style": {
+                    "color": "#F8FAFC",
+                    "fontSize": "16px",
+                    "fontWeight": "800"
+                  }
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "{view.custom.Cloud_Mode}"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "meta": {
+          "name": "Tabs"
+        },
+        "type": "ia.container.tab",
+        "position": {
+          "basis": "800px",
+          "grow": 1
+        },
+        "props": {
+          "tabs": [
+            "📈 Entrenamiento y versiones",
+            "🖼️ Dataset y etiquetado",
+            "🧪 MLflow"
+          ],
+          "currentTabIndex": 0,
+          "menuStyle": {
+            "backgroundColor": "#0F172A",
+            "color": "#E2E8F0"
+          },
+          "tabStyle": {
+            "active": {
+              "color": "#C4B5FD",
+              "fontWeight": "700"
+            },
+            "inactive": {
+              "color": "#94A3B8"
+            }
+          }
+        },
+        "children": [
+          {
+            "meta": {
+              "name": "Tab_Entrenamiento"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "tabIndex": 0
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "gap": "8px",
+                "padding": "8px",
+                "overflow": "auto"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Charts"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "250px",
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "row",
+                  "style": {
+                    "gap": "8px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "Chart_F1"
+                    },
+                    "type": "ia.display.image",
+                    "position": {
+                      "basis": "auto",
+                      "grow": 1,
+                      "shrink": 1
+                    },
+                    "props": {
+                      "fit": {
+                        "mode": "contain"
+                      },
+                      "style": {
+                        "minHeight": "240px",
+                        "backgroundColor": "#0F172A",
+                        "borderRadius": "8px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.source": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat({view.custom.apiBrowser}, '/api/mlops/chart/f1.svg?recipe=', {view.custom.recipe}, '&t=', toMillis(now(5000)))"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Chart_PSI"
+                    },
+                    "type": "ia.display.image",
+                    "position": {
+                      "basis": "auto",
+                      "grow": 1,
+                      "shrink": 1
+                    },
+                    "props": {
+                      "fit": {
+                        "mode": "contain"
+                      },
+                      "style": {
+                        "minHeight": "240px",
+                        "backgroundColor": "#0F172A",
+                        "borderRadius": "8px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.source": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat({view.custom.apiBrowser}, '/api/mlops/chart/psi.svg?recipe=', {view.custom.recipe}, '&t=', toMillis(now(2000)))"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Actions"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "58px",
+                  "grow": 0,
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "row",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #1E293B",
+                    "borderLeft": "4px solid #6366F1",
+                    "borderRadius": "8px",
+                    "padding": "8px 10px",
+                    "gap": "6px",
+                    "alignItems": "center",
+                    "flexWrap": "wrap"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "Btn_Retrain"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "🔁 Reentrenar receta activa (nuevo modelo → SHADOW)",
+                      "style": {
+                        "backgroundColor": "#4338CA",
+                        "borderRadius": "6px",
+                        "fontWeight": "700",
+                        "fontSize": "12px"
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tsystem.tag.writeBlocking(['[default]BrewSCADA/UDT_VisionCamera/Retrain_Cmd'], [True])\n\tself.view.custom.lastMsg = 'Retrain_Cmd enviado al Soft-PLC'"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Retrain_All"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "🔁 Reentrenar TODAS las recetas",
+                      "style": {
+                        "backgroundColor": "#312E81",
+                        "borderRadius": "6px",
+                        "fontWeight": "700",
+                        "fontSize": "12px"
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tuser = self.session.props.auth.user.userName or 'ignition'\n\tpayload = {'product_recipe': 'ALL', 'reason': 'Ignition Perspective'}\n\tpayload['user_name'] = user\n\tpayload['user_role'] = self.view.custom.role\n\ttry:\n\t\tresp = system.net.httpClient(timeout=15000).post(self.view.custom.apiGw + \"/api/mlops/retrain\", data=payload)\n\t\tbody = resp.json if resp.good else {}\n\t\tself.view.custom.lastMsg = (\"OK: \" if resp.good else \"Error %s: \" % resp.statusCode) + (str(body) if resp.good else resp.text)[:240]\n\texcept Exception, e:\n\t\tself.view.custom.lastMsg = \"Sin conexión con la API: %s\" % e"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Promote"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "🚀 Promover SHADOW → PRODUCCIÓN",
+                      "style": {
+                        "backgroundColor": "#B45309",
+                        "borderRadius": "6px",
+                        "fontWeight": "700",
+                        "fontSize": "12px"
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tsystem.tag.writeBlocking(['[default]BrewSCADA/UDT_VisionCamera/Promote_Shadow_Cmd'], [True])\n\tself.view.custom.lastMsg = 'Promote_Shadow_Cmd enviado al Soft-PLC'"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Job_Msg"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "320px",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "",
+                      "style": {
+                        "color": "#A5B4FC",
+                        "fontSize": "12px",
+                        "whiteSpace": "normal"
+                      }
+                    },
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "{view.custom.MLOps_Job_Message}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Tbl_Runs"
+                },
+                "type": "ia.display.table",
+                "position": {
+                  "basis": "260px",
+                  "grow": 1,
+                  "shrink": 0
+                },
+                "props": {
+                  "columns": [
+                    {
+                      "field": "version",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 60,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Versión",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "role",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 95,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Rol",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "algorithm",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 120,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Algoritmo",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "f1",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 60,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "F1",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      },
+                      "number": "value",
+                      "numberFormat": "0.000"
+                    },
+                    {
+                      "field": "defect_recall",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 90,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Recall defectos",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      },
+                      "number": "value",
+                      "numberFormat": "0.000"
+                    },
+                    {
+                      "field": "false_reject",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 85,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Falso rechazo",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      },
+                      "number": "value",
+                      "numberFormat": "0.000"
+                    },
+                    {
+                      "field": "train",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 55,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Train",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "test",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 50,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Test",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "new_images",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 55,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Nuevas",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "data_version",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 100,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Dataset",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "dvc_md5",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 90,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "DVC md5",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "mlflow_run",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 80,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Run MLflow",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "reason",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 140,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Motivo",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    },
+                    {
+                      "field": "created_at",
+                      "visible": true,
+                      "editable": false,
+                      "render": "auto",
+                      "justify": "auto",
+                      "align": "center",
+                      "resizable": true,
+                      "sortable": true,
+                      "width": 150,
+                      "strictWidth": false,
+                      "header": {
+                        "title": "Fecha (UTC)",
+                        "justify": "left",
+                        "align": "center",
+                        "style": {
+                          "classes": ""
+                        }
+                      }
+                    }
+                  ],
+                  "pager": {
+                    "bottom": false,
+                    "top": false
+                  },
+                  "rows": {
+                    "striped": {
+                      "enabled": true,
+                      "color": "#0B1220"
+                    }
+                  },
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "color": "#E2E8F0",
+                    "fontSize": "11px"
+                  },
+                  "headerStyle": {
+                    "backgroundColor": "#111827",
+                    "color": "#93C5FD",
+                    "fontSize": "11px"
+                  }
+                },
+                "propConfig": {
+                  "props.data": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "now(5000)"
+                      },
+                      "transforms": [
+                        {
+                          "type": "script",
+                          "code": "\turl = self.view.custom.apiGw + \"/api/mlops/runs?recipe=\" + self.view.custom.recipe\n\ttry:\n\t\treturn system.util.jsonDecode(system.net.httpGet(url, 3000, 5000))\n\texcept Exception, e:\n\t\treturn []"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Tab_Dataset"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "tabIndex": 1
+            },
+            "props": {
+              "direction": "row",
+              "style": {
+                "gap": "8px",
+                "padding": "8px",
+                "overflow": "auto"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "Label_Frame"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "320px",
+                  "grow": 0,
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #1E293B",
+                    "borderLeft": "4px solid #A78BFA",
+                    "borderRadius": "8px",
+                    "padding": "8px 10px",
+                    "gap": "6px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "LF_Title"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "1 · Etiquetar la última pieza inspeccionada (HITL)",
+                      "style": {
+                        "color": "#C4B5FD",
+                        "fontSize": "12px",
+                        "fontWeight": "800"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "LF_Image"
+                    },
+                    "type": "ia.display.image",
+                    "position": {
+                      "basis": "256px",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "fit": {
+                        "mode": "contain"
+                      },
+                      "style": {
+                        "backgroundColor": "#000",
+                        "borderRadius": "6px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.source": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "{view.custom.Last_Raw_URL}"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "LF_Info"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "",
+                      "style": {
+                        "color": "#94A3B8",
+                        "fontSize": "11px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat({view.custom.Last_Serial}, ' · edge: ', {view.custom.Last_Defect_Class}, ' (', numberFormat({view.custom.Last_Confidence} * 100, '0'), '%)')"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "LF_Label"
+                    },
+                    "type": "ia.input.dropdown",
+                    "position": {
+                      "basis": "34px",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "placeholder": {
+                        "text": "Etiqueta real"
+                      }
+                    },
+                    "propConfig": {
+                      "props.options": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "{view.custom.classes}"
+                          }
+                        }
+                      },
+                      "props.value": {
+                        "binding": {
+                          "type": "property",
+                          "config": {
+                            "path": "view.custom.frameLabel",
+                            "bidirectional": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Label_Frame"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "➕ Agregar frame al dataset",
+                      "style": {
+                        "backgroundColor": "#4338CA",
+                        "borderRadius": "6px",
+                        "fontWeight": "700",
+                        "fontSize": "12px"
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tuser = self.session.props.auth.user.userName or 'ignition'\n\tpayload = {'serial_number': self.view.custom.Last_Serial, 'label': self.view.custom.frameLabel}\n\tpayload['user_name'] = user\n\tpayload['user_role'] = self.view.custom.role\n\ttry:\n\t\tresp = system.net.httpClient(timeout=15000).post(self.view.custom.apiGw + \"/api/mlops/label-frame\", data=payload)\n\t\tbody = resp.json if resp.good else {}\n\t\tself.view.custom.lastMsg = (\"OK: \" if resp.good else \"Error %s: \" % resp.statusCode) + (str(body) if resp.good else resp.text)[:240]\n\texcept Exception, e:\n\t\tself.view.custom.lastMsg = \"Sin conexión con la API: %s\" % e"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Upload"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "320px",
+                  "grow": 0,
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #1E293B",
+                    "borderLeft": "4px solid #A78BFA",
+                    "borderRadius": "8px",
+                    "padding": "8px 10px",
+                    "gap": "6px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "UP_Title"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "2 · Subir imágenes nuevas con su etiqueta",
+                      "style": {
+                        "color": "#C4B5FD",
+                        "fontSize": "12px",
+                        "fontWeight": "800"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "UP_Label"
+                    },
+                    "type": "ia.input.dropdown",
+                    "position": {
+                      "basis": "34px",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "placeholder": {
+                        "text": "Etiqueta de las imágenes"
+                      }
+                    },
+                    "propConfig": {
+                      "props.options": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "{view.custom.classes}"
+                          }
+                        }
+                      },
+                      "props.value": {
+                        "binding": {
+                          "type": "property",
+                          "config": {
+                            "path": "view.custom.uploadLabel",
+                            "bidirectional": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "UP_File"
+                    },
+                    "type": "ia.input.fileupload",
+                    "position": {
+                      "basis": "180px",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "fileUploadIcon": {
+                        "path": "material/cloud_upload"
+                      },
+                      "supportedFileTypes": [
+                        "png",
+                        "jpg",
+                        "jpeg",
+                        "bmp"
+                      ],
+                      "maxUploads": 50
+                    },
+                    "events": {
+                      "component": {
+                        "onFileReceived": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tfrom java.util import Base64\n\tuser = self.session.props.auth.user.userName or 'ignition'\n\tpayload = {\n\t\t'product_recipe': self.view.custom.recipe,\n\t\t'label': self.view.custom.uploadLabel,\n\t\t'image_base64': Base64.getEncoder().encodeToString(event.file.getBytes()),\n\t\t'filename': event.file.name,\n\t\t'user_name': user,\n\t\t'user_role': self.view.custom.role,\n\t}\n\ttry:\n\t\tresp = system.net.httpClient(timeout=20000).post(self.view.custom.apiGw + '/api/mlops/images', data=payload)\n\t\tself.view.custom.lastMsg = ('Imagen agregada: ' if resp.good else 'Error: ') + (event.file.name if resp.good else resp.text[:200])\n\texcept Exception, e:\n\t\tself.view.custom.lastMsg = 'Sin conexión con la API: %s' % e"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Msg"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "",
+                      "style": {
+                        "color": "#A5B4FC",
+                        "fontSize": "11px",
+                        "whiteSpace": "normal"
+                      }
+                    },
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "{view.custom.lastMsg}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "meta": {
+                  "name": "Dataset_Table_Card"
+                },
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "380px",
+                  "grow": 1,
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "column",
+                  "style": {
+                    "backgroundColor": "#0F172A",
+                    "border": "1px solid #1E293B",
+                    "borderLeft": "4px solid #A78BFA",
+                    "borderRadius": "8px",
+                    "padding": "8px 10px",
+                    "gap": "6px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "DS_Title"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "Imágenes por etiqueta y split (train / test / holdout = producción)",
+                      "style": {
+                        "color": "#C4B5FD",
+                        "fontSize": "12px",
+                        "fontWeight": "800"
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Tbl_Dataset"
+                    },
+                    "type": "ia.display.table",
+                    "position": {
+                      "basis": "260px",
+                      "grow": 1,
+                      "shrink": 0
+                    },
+                    "props": {
+                      "columns": [
+                        {
+                          "field": "label",
+                          "visible": true,
+                          "editable": false,
+                          "render": "auto",
+                          "justify": "auto",
+                          "align": "center",
+                          "resizable": true,
+                          "sortable": true,
+                          "width": 120,
+                          "strictWidth": false,
+                          "header": {
+                            "title": "Etiqueta",
+                            "justify": "left",
+                            "align": "center",
+                            "style": {
+                              "classes": ""
+                            }
+                          }
+                        },
+                        {
+                          "field": "train",
+                          "visible": true,
+                          "editable": false,
+                          "render": "auto",
+                          "justify": "auto",
+                          "align": "center",
+                          "resizable": true,
+                          "sortable": true,
+                          "width": 60,
+                          "strictWidth": false,
+                          "header": {
+                            "title": "Train",
+                            "justify": "left",
+                            "align": "center",
+                            "style": {
+                              "classes": ""
+                            }
+                          }
+                        },
+                        {
+                          "field": "test",
+                          "visible": true,
+                          "editable": false,
+                          "render": "auto",
+                          "justify": "auto",
+                          "align": "center",
+                          "resizable": true,
+                          "sortable": true,
+                          "width": 60,
+                          "strictWidth": false,
+                          "header": {
+                            "title": "Test",
+                            "justify": "left",
+                            "align": "center",
+                            "style": {
+                              "classes": ""
+                            }
+                          }
+                        },
+                        {
+                          "field": "holdout",
+                          "visible": true,
+                          "editable": false,
+                          "render": "auto",
+                          "justify": "auto",
+                          "align": "center",
+                          "resizable": true,
+                          "sortable": true,
+                          "width": 70,
+                          "strictWidth": false,
+                          "header": {
+                            "title": "Holdout",
+                            "justify": "left",
+                            "align": "center",
+                            "style": {
+                              "classes": ""
+                            }
+                          }
+                        },
+                        {
+                          "field": "total",
+                          "visible": true,
+                          "editable": false,
+                          "render": "auto",
+                          "justify": "auto",
+                          "align": "center",
+                          "resizable": true,
+                          "sortable": true,
+                          "width": 60,
+                          "strictWidth": false,
+                          "header": {
+                            "title": "Total",
+                            "justify": "left",
+                            "align": "center",
+                            "style": {
+                              "classes": ""
+                            }
+                          }
+                        }
+                      ],
+                      "pager": {
+                        "bottom": false,
+                        "top": false
+                      },
+                      "rows": {
+                        "striped": {
+                          "enabled": true,
+                          "color": "#0B1220"
+                        }
+                      },
+                      "style": {
+                        "backgroundColor": "#0F172A",
+                        "color": "#E2E8F0",
+                        "fontSize": "11px"
+                      },
+                      "headerStyle": {
+                        "backgroundColor": "#111827",
+                        "color": "#93C5FD",
+                        "fontSize": "11px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.data": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "now(8000)"
+                          },
+                          "transforms": [
+                            {
+                              "type": "script",
+                              "code": "\turl = self.view.custom.apiGw + \"/api/mlops/dataset-rows?recipe=\" + self.view.custom.recipe\n\ttry:\n\t\treturn system.util.jsonDecode(system.net.httpGet(url, 3000, 5000))\n\texcept Exception, e:\n\t\treturn []"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "DS_Sources"
+                    },
+                    "type": "ia.display.label",
+                    "position": {
+                      "basis": "auto",
+                      "shrink": 0
+                    },
+                    "props": {
+                      "text": "",
+                      "style": {
+                        "color": "#94A3B8",
+                        "fontSize": "11px",
+                        "whiteSpace": "normal"
+                      }
+                    },
+                    "propConfig": {
+                      "props.text": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "concat('Versión del dataset: ', {view.custom.Dataset_Version}, ' · versionado con DVC en MinIO (s3://dvc-store)')"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "meta": {
+              "name": "Tab_MLflow"
+            },
+            "type": "ia.container.flex",
+            "position": {
+              "tabIndex": 2
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "padding": "4px"
+              }
+            },
+            "children": [
+              {
+                "meta": {
+                  "name": "MLflow_Frame"
+                },
+                "type": "ia.display.iframe",
+                "position": {
+                  "grow": 1,
+                  "basis": "700px"
+                },
+                "props": {
+                  "style": {
+                    "backgroundColor": "#FFFFFF",
+                    "borderRadius": "6px"
+                  }
+                },
+                "propConfig": {
+                  "props.src": {
+                    "binding": {
+                      "type": "expr",
+                      "config": {
+                        "expression": "{view.custom.mlflowUrl}"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

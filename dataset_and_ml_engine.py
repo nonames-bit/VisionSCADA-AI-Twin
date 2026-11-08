@@ -3,9 +3,11 @@ Industrial Optical Inspection Dataset Builder, Feature Extractor,
 Real Edge ML Trainer (Production + Shadow Models), Heatmap/BBox Generator,
 and Human-in-the-Loop Retraining Engine.
 
-Follows strict ML best practices:
-- Train/Test split happens strictly BEFORE fitting StandardScaler + Classifier pipelines.
-- Explicit check and handling of missing/NaN values.
+Follows strict ML best practices (see mlops/):
+- Train / test / holdout split by image content hash: no image is ever in two splits,
+  and production frames replayed by the 3D twin come only from the holdout split.
+- Imputer + StandardScaler fitted inside the Pipeline on train data only.
+- Real PSI drift against the champion's training reference.
 - Images stored on disk (storage/raw_images & storage/heatmaps), never as SQL BLOBs;
   PostgreSQL stores relative path + SHA-256 hash + metadata.
 """
@@ -21,40 +23,23 @@ from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score,
-    confusion_matrix,
-)
 
-BASE_DIR = Path(__file__).resolve().parent
+from mlops import datasets as ds
+from mlops import registry
+from mlops.catalog import BASE_DIR, FEATURE_NAMES, MODELS_DIR, RECIPES  # noqa: F401  (re-exported)
+from mlops.drift import DriftMonitor, FeatureReference
+
 STORAGE_RAW = BASE_DIR / "storage" / "raw_images"
 STORAGE_HEATMAP = BASE_DIR / "storage" / "heatmaps"
-MODELS_DIR = BASE_DIR / "models"
 
-RECIPES = {
-    "CAST_100": {
-        "name": "Impulsor Metálico de Fundición (Casting Dataset)",
-        "classes": ["OK", "Porosity_Pinhole", "Shrinkage_Crack", "Flash_Burr"],
-        "nominal_ppm": 45,
-    },
-    "PACK_200": {
-        "name": "Vial & Cápsula Farmacéutica (MVTec AD Style)",
-        "classes": ["OK", "Neck_Crack", "Liquid_Contamination", "Seal_Deformation"],
-        "nominal_ppm": 60,
-    },
+# Procedural renderers keep the old visual defect families; map the honest labels onto them.
+_SYNTHETIC_FAMILY = {
+    "CAST_100": {"Casting_Defect": ["Porosity_Pinhole", "Shrinkage_Crack", "Flash_Burr"]},
+    "PACK_200": {"Pill_Defect": ["Neck_Crack", "Liquid_Contamination", "Seal_Deformation"]},
     "PCB_300": {
-        "name": "Placa Controladora SMT (DeepPCB Defects)",
-        "classes": ["OK", "Copper_Short", "Open_Trace", "Mousebite_Spur"],
-        "nominal_ppm": 35,
+        "Open": ["Open_Trace"], "Pin_Hole": ["Open_Trace"],
+        "Short": ["Copper_Short"], "Copper": ["Copper_Short"],
+        "Mousebite": ["Mousebite_Spur"], "Spur": ["Mousebite_Spur"],
     },
 }
 
@@ -298,7 +283,7 @@ def generate_heatmap_and_overlay(
     confidence: float,
     out_path: Path,
 ) -> None:
-    """Renders an industrial Grad-CAM style anomaly heatmap + bounding box HUD overlay saved to disk."""
+    """Renders the HUD overlay: real annotated boxes (DeepPCB) when available, otherwise a verdict banner."""
     base = img.convert("RGBA")
     overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -315,6 +300,10 @@ def generate_heatmap_and_overlay(
             draw.rectangle((x, y, x + w, y + h), outline=(255, 52, 52, 255), width=2)
             draw.rectangle((x, max(0, y - 16), x + min(150, w + 80), y), fill=(220, 38, 38, 230))
             draw.text((x + 4, max(0, y - 14)), f"{defect_class} {confidence*100:.0f}%", fill=(255, 255, 255, 255))
+    elif defect_class != "OK":
+        # No real localisation available (classification-only dataset): say so, don't invent a box
+        draw.rectangle((6, 6, 250, 26), fill=(220, 38, 38, 220))
+        draw.text((12, 9), f"NOK {defect_class} {confidence*100:.0f}% (sin localizacion)", fill=(255, 255, 255, 255))
     else:
         draw.rectangle((6, 6, 132, 26), fill=(16, 185, 129, 210))
         draw.text((12, 9), f"PASS OK ({confidence*100:.1f}%)", fill=(255, 255, 255, 255))
@@ -323,192 +312,100 @@ def generate_heatmap_and_overlay(
     merged.save(out_path, format="PNG")
 
 
+def render_synthetic_sample(recipe: str, label: str, rng: random.Random, degrade_lighting: bool = False) -> Tuple[Image.Image, List[Dict[str, Any]]]:
+    """Procedural fallback image for an honest label (used only when real images are missing)."""
+    family = "OK" if label == "OK" else rng.choice(_SYNTHETIC_FAMILY[recipe][label])
+    if recipe == "CAST_100":
+        img, boxes = _render_casting_impeller(rng, family, degrade_lighting)
+    elif recipe == "PACK_200":
+        img, boxes = _render_pharma_pack(rng, family, degrade_lighting)
+    else:
+        img, boxes = _render_pcb_board(rng, family, degrade_lighting)
+    for b in boxes:
+        b["label"] = label
+    return img, boxes
+
+
+def _degrade(img: Image.Image) -> Image.Image:
+    """Dirty lens / weak light ring: darker and blurrier frame (drives the real PSI up)."""
+    return img.point(lambda p: int(p * 0.72)).filter(ImageFilter.GaussianBlur(1.1))
+
+
 def render_recipe_sample(
     product_recipe: str,
     defect_class: str,
     seed: int,
     degrade_lighting: bool = False,
-) -> Tuple[Image.Image, List[Dict[str, Any]]]:
+) -> Tuple[Image.Image, List[Dict[str, Any]], str]:
     """
-    Returns an authentic real inspection image from the real dataset directory
-    (Pilot Technocast impellers, Pill-Defects capsules, DeepPCB SMT scans).
+    Production frame for the 3D twin: a real image from the HOLDOUT split (never used
+    for training or model selection). Bounding boxes are returned only when the dataset
+    has real annotations (DeepPCB patches); no invented boxes.
+    Returns (image, bboxes, source) where source is 'holdout:<file>' or 'synthetic'.
     """
-    recipe_dir = STORAGE_RAW / product_recipe
-    matches = list(recipe_dir.glob(f"dataset_{defect_class}_*.png"))
-    if not matches:
-        if defect_class == "OK":
-            matches = list(recipe_dir.glob("dataset_OK_*.png"))
-        else:
-            matches = [f for f in recipe_dir.glob("dataset_*.png") if not f.name.startswith("dataset_OK_")]
-
-    if matches:
-        chosen = matches[seed % len(matches)]
-        img = Image.open(chosen).convert("RGB").resize((256, 256))
+    entry = ds.pick_production_frame(product_recipe, defect_class, seed)
+    if entry is not None:
+        img = Image.open(entry.path).convert("RGB").resize((256, 256))
         if degrade_lighting:
-            # Simulate optical dust / dirty lens drift
-            img = img.point(lambda p: int(p * 0.72)).filter(ImageFilter.GaussianBlur(1.1))
-
-        bboxes = []
-        if defect_class != "OK":
-            # Real anomaly bounding box location
-            bboxes.append({"x": 80, "y": 75, "w": 95, "h": 95, "label": defect_class})
-        return img, bboxes
-
-    rng = random.Random(seed)
-    if product_recipe == "CAST_100":
-        return _render_casting_impeller(rng, defect_class, degrade_lighting)
-    elif product_recipe == "PACK_200":
-        return _render_pharma_pack(rng, defect_class, degrade_lighting)
-    else:
-        return _render_pcb_board(rng, defect_class, degrade_lighting)
+            img = _degrade(img)
+        return img, [dict(b) for b in entry.bboxes], f"holdout:{entry.path.name}"
+    img, boxes = render_synthetic_sample(product_recipe, defect_class, random.Random(seed), degrade_lighting)
+    return img, boxes, "synthetic"
 
 
-def build_and_train_all_models(samples_per_class: int = 45) -> Dict[str, Any]:
+def build_and_train_all_models(samples_per_class: int = 0) -> Dict[str, Any]:
     """
-    Generates labeled training/test datasets for all 3 recipes, checks for missing values,
-    splits strictly BEFORE fitting preprocessing pipelines (StandardScaler),
-    and trains both PRODUCTION (v1.0.0) and SHADOW (v1.1.0-shadow) models.
+    Initial bootstrap: trains every recipe from storage/datasets and registers
+    RandomForest as champion (PRODUCTION) and GradientBoosting as challenger (SHADOW).
+    `samples_per_class` is kept for backwards compatibility and ignored.
     """
+    from mlops import trainer
+
     ensure_dirs()
-    summary: Dict[str, Any] = {}
-
-    for recipe, meta in RECIPES.items():
-        classes = meta["classes"]
-        X_list: List[np.ndarray] = []
-        y_list: List[int] = []
-
-        for cls_idx, cls_name in enumerate(classes):
-            for i in range(samples_per_class):
-                seed = hash((recipe, cls_name, i)) & 0x7FFFFFFF
-                img, bboxes = render_recipe_sample(recipe, cls_name, seed)
-                # Persist reference dataset samples to disk
-                if i < 6:
-                    sample_file = STORAGE_RAW / recipe / f"dataset_{cls_name}_{i:02d}.png"
-                    if not sample_file.exists():
-                        img.save(sample_file, format="PNG")
-                feats = extract_optical_features(img)
-                X_list.append(feats)
-                y_list.append(cls_idx)
-
-        X = np.vstack(X_list)
-        y = np.array(y_list, dtype=np.int64)
-
-        # ML Best Practice: Check for missing / NaN values and handle via SimpleImputer inside Pipeline
-        nan_count = int(np.isnan(X).sum())
-
-        # ML Best Practice: Split into train and test strictly BEFORE fitting any scaler/transformer
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.25, random_state=42, stratify=y
-        )
-
-        # 1. Production Model (v1.0.0 - Fast Random Forest Pipeline)
-        prod_pipeline = Pipeline(
-            [
-                ("imputer", SimpleImputer(strategy="median")),
-                ("scaler", StandardScaler()),
-                ("clf", RandomForestClassifier(n_estimators=90, max_depth=8, random_state=42)),
-            ]
-        )
-        prod_pipeline.fit(X_train, y_train)
-        y_pred_prod = prod_pipeline.predict(X_test)
-        y_prob_prod = prod_pipeline.predict_proba(X_test)
-
-        # 2. Shadow Model (v1.1.0-shadow - Gradient Boosting Candidate)
-        shadow_pipeline = Pipeline(
-            [
-                ("imputer", SimpleImputer(strategy="median")),
-                ("scaler", StandardScaler()),
-                ("clf", GradientBoostingClassifier(n_estimators=110, learning_rate=0.08, max_depth=4, random_state=99)),
-            ]
-        )
-        shadow_pipeline.fit(X_train, y_train)
-        y_pred_shadow = shadow_pipeline.predict(X_test)
-        y_prob_shadow = shadow_pipeline.predict_proba(X_test)
-
-        prod_path = MODELS_DIR / f"{recipe}_v1_0_0_prod.joblib"
-        shadow_path = MODELS_DIR / f"{recipe}_v1_1_0_shadow.joblib"
-
-        joblib.dump({"pipeline": prod_pipeline, "classes": classes, "version": "v1.0.0"}, prod_path)
-        joblib.dump({"pipeline": shadow_pipeline, "classes": classes, "version": "v1.1.0-shadow"}, shadow_path)
-
-        summary[recipe] = {
-            "nan_values_found": nan_count,
-            "production": _compute_metrics(
-                recipe, "v1.0.0", "PRODUCTION", "RandomForest(90) + StandardScaler",
-                y_test, y_pred_prod, y_prob_prod, classes, len(y_train), len(y_test), str(prod_path.relative_to(BASE_DIR))
-            ),
-            "shadow": _compute_metrics(
-                recipe, "v1.1.0-shadow", "SHADOW", "GradientBoosting(110) + StandardScaler",
-                y_test, y_pred_shadow, y_prob_shadow, classes, len(y_train), len(y_test), str(shadow_path.relative_to(BASE_DIR))
-            ),
-        }
-
-    return summary
-
-
-def _compute_metrics(
-    recipe: str,
-    version: str,
-    role: str,
-    algorithm: str,
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    y_prob: np.ndarray,
-    classes: List[str],
-    train_n: int,
-    test_n: int,
-    artifact_rel: str,
-) -> Dict[str, Any]:
-    acc = float(accuracy_score(y_true, y_pred))
-    prec = float(precision_score(y_true, y_pred, average="weighted", zero_division=0))
-    rec = float(recall_score(y_true, y_pred, average="weighted", zero_division=0))
-    f1 = float(f1_score(y_true, y_pred, average="weighted", zero_division=0))
-    try:
-        auc = float(roc_auc_score(y_true, y_prob, multi_class="ovr", average="weighted"))
-    except Exception:
-        auc = acc
-    cm = confusion_matrix(y_true, y_pred).tolist()
+    trainer.train_all(initial=True, reason="bootstrap")
+    reg = registry.load()
     return {
-        "product_recipe": recipe,
-        "model_version": version,
-        "deployment_role": role,
-        "algorithm": algorithm,
-        "accuracy": round(acc, 4),
-        "precision_score": round(prec, 4),
-        "recall_score": round(rec, 4),
-        "f1_score": round(f1, 4),
-        "roc_auc": round(auc, 4),
-        "train_samples": train_n,
-        "test_samples": test_n,
-        "confusion_matrix_json": {"labels": classes, "matrix": cm},
-        "artifact_path": artifact_rel,
+        r: {
+            "production": trainer.db_rows_for(r, reg[r]["champion"], "PRODUCTION"),
+            "shadow": trainer.db_rows_for(r, reg[r]["challenger"], "SHADOW"),
+        }
+        for r in RECIPES
     }
 
 
 class EdgeVisionInferenceEngine:
     """
-    Loads Production and Shadow models in memory for < 15 ms deterministic Edge inference,
-    and supports live Shadow Mode comparison + Model Promotion + HITL Retraining.
+    Loads champion (PRODUCTION) and challenger (SHADOW) models from the local registry for
+    deterministic edge inference, computes real PSI drift, and supports promotion.
     """
 
     def __init__(self):
         ensure_dirs()
         self.models: Dict[str, Dict[str, Any]] = {}
+        self.references: Dict[str, Optional[FeatureReference]] = {}
+        self.drift = DriftMonitor()
         self.reload_models()
 
     def reload_models(self):
+        if not registry.has_champions():
+            build_and_train_all_models()
+        reg = registry.load()
         for recipe in RECIPES:
-            prod_file = MODELS_DIR / f"{recipe}_v1_0_0_prod.joblib"
-            if not prod_file.exists():
-                build_and_train_all_models()
-                break
-        for recipe in RECIPES:
-            prod_file = MODELS_DIR / f"{recipe}_v1_0_0_prod.joblib"
-            shadow_file = MODELS_DIR / f"{recipe}_v1_1_0_shadow.joblib"
-            self.models[recipe] = {
-                "prod": joblib.load(prod_file),
-                "shadow": joblib.load(shadow_file),
-            }
+            champ = reg[recipe]["champion"]
+            chall = reg[recipe].get("challenger") or champ
+            prod = registry.load_bundle(recipe, champ)
+            shadow = registry.load_bundle(recipe, chall) if registry.model_path(recipe, chall).exists() else prod
+            for b in (prod, shadow):
+                clf = b["pipeline"].named_steps.get("clf")
+                if clf is not None and hasattr(clf, "n_jobs"):
+                    clf.n_jobs = 1  # single-frame inference: avoid process-pool overhead
+            self.models[recipe] = {"prod": prod, "shadow": shadow}
+            ref = prod.get("reference")
+            new_ref = FeatureReference.from_dict(ref) if ref else None
+            if self.references.get(recipe) is not None and new_ref is not None and \
+                    self.references[recipe].to_dict() != new_ref.to_dict():
+                self.drift.reset(recipe)  # new champion -> new reference distribution
+            self.references[recipe] = new_ref
 
     def inspect_frame(
         self,
@@ -520,7 +417,7 @@ class EdgeVisionInferenceEngine:
         degrade_lighting: bool = False,
     ) -> Dict[str, Any]:
         t0 = time.perf_counter()
-        img, bboxes = render_recipe_sample(product_recipe, ground_truth_class, seed, degrade_lighting)
+        img, bboxes, frame_source = render_recipe_sample(product_recipe, ground_truth_class, seed, degrade_lighting)
 
         raw_rel = Path("storage") / "raw_images" / product_recipe / f"{serial_number}.png"
         heatmap_rel = Path("storage") / "heatmaps" / product_recipe / f"{serial_number}_hm.png"
@@ -533,31 +430,30 @@ class EdgeVisionInferenceEngine:
         feats = extract_optical_features(img)
         X_vec = feats.reshape(1, -1)
 
-        # 1. Production Model Inference
+        # 1. Production (champion) inference - drives the PLC
         prod_bundle = self.models[product_recipe]["prod"]
-        prod_pipe = prod_bundle["pipeline"]
         classes = prod_bundle["classes"]
-        probs_prod = prod_pipe.predict_proba(X_vec)[0]
+        probs_prod = _proba(prod_bundle["pipeline"], X_vec, len(classes))
         pred_idx_prod = int(np.argmax(probs_prod))
         pred_class_prod = classes[pred_idx_prod]
         conf_prod = float(probs_prod[pred_idx_prod])
-        if degrade_lighting:
-            conf_prod = max(0.42, conf_prod - 0.24)
 
         anomaly_score = round(float(1.0 - probs_prod[0]), 4)
         edge_status = "OK" if (pred_class_prod == "OK" and conf_prod >= confidence_threshold) else "NOK"
         if edge_status == "NOK" and pred_class_prod == "OK":
-            # Low-confidence OK is flagged as NOK (Low-Confidence / Suspect)
+            # Low-confidence OK is flagged as NOK (suspect) with the most likely defect
             pred_class_prod = classes[int(np.argmax(probs_prod[1:]) + 1)]
 
-        # 2. Shadow Model Inference (Parallel, never drives PLC)
+        # 2. Shadow (challenger) inference - parallel, never drives the PLC
         shadow_bundle = self.models[product_recipe]["shadow"]
-        shadow_pipe = shadow_bundle["pipeline"]
-        probs_sh = shadow_pipe.predict_proba(X_vec)[0]
+        probs_sh = _proba(shadow_bundle["pipeline"], X_vec, len(shadow_bundle["classes"]))
         pred_idx_sh = int(np.argmax(probs_sh))
-        pred_class_sh = classes[pred_idx_sh]
+        pred_class_sh = shadow_bundle["classes"][pred_idx_sh]
         conf_sh = float(probs_sh[pred_idx_sh])
         shadow_status = "OK" if (pred_class_sh == "OK" and conf_sh >= confidence_threshold) else "NOK"
+
+        # 3. Real PSI drift over the rolling window vs. the champion's training reference
+        drift = self.drift.update(product_recipe, feats, self.references.get(product_recipe), time.time())
 
         generate_heatmap_and_overlay(img, bboxes, pred_class_prod if edge_status == "NOK" else "OK", conf_prod, heatmap_abs)
         edge_latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
@@ -569,6 +465,7 @@ class EdgeVisionInferenceEngine:
             "heatmap_rel_path": str(heatmap_rel).replace("\\", "/"),
             "sha256_hash": sha256_hex,
             "ground_truth_class": ground_truth_class,
+            "frame_source": frame_source,
             "edge_model_version": prod_bundle["version"],
             "edge_status": edge_status,
             "edge_defect_class": pred_class_prod,
@@ -582,16 +479,28 @@ class EdgeVisionInferenceEngine:
             "shadow_confidence": round(conf_sh, 4),
             "brightness_mean": round(float(feats[0]), 2),
             "contrast_std": round(float(feats[1]), 2),
+            "drift_psi": drift["psi"],
+            "drift_status": drift["status"],
+            "drift_top_feature": drift["top_feature"],
+            "drift_window": drift["window"],
         }
 
-    def promote_shadow_to_production(self, product_recipe: str, new_version_tag: str = "v1.2.0-promoted") -> Dict[str, Any]:
-        shadow_bundle = self.models[product_recipe]["shadow"]
-        promoted_bundle = {
-            "pipeline": shadow_bundle["pipeline"],
-            "classes": shadow_bundle["classes"],
-            "version": new_version_tag,
-        }
-        prod_file = MODELS_DIR / f"{product_recipe}_v1_0_0_prod.joblib"
-        joblib.dump(promoted_bundle, prod_file)
-        self.models[product_recipe]["prod"] = promoted_bundle
-        return {"product_recipe": product_recipe, "promoted_version": new_version_tag}
+    def promote_shadow_to_production(self, product_recipe: str, new_version_tag: Optional[str] = None) -> Dict[str, Any]:
+        """Challenger -> champion in the local registry (+ MLflow aliases) and hot reload."""
+        from mlops.tracking import tracker
+
+        res = registry.promote(product_recipe)
+        reg = registry.load()[product_recipe]
+        for alias, ver in (("champion", reg["champion"]), ("challenger", reg["challenger"])):
+            info = reg["versions"].get(ver or "", {})
+            tracker.set_alias(product_recipe, alias, info.get("mlflow_model_version"))
+        self.reload_models()
+        return res
+
+
+def _proba(pipe: Any, X: np.ndarray, n_classes: int) -> np.ndarray:
+    p = pipe.predict_proba(X)[0]
+    out = np.zeros(n_classes)
+    for col, cls_idx in enumerate(pipe.classes_):
+        out[int(cls_idx)] = p[col]
+    return out

@@ -8,6 +8,7 @@ Integrates:
   5. PostgreSQL Persistence + SPC Carta p (Western Electric Rules) + ISA-18.2 Alarms
   6. RBAC Security + Audit Log + Human-in-the-Loop MLOps + Read-Only SQL LLM Copilot
 """
+import env_loader  # noqa: F401  (loads .env before modules read GEMINI_API_KEY / MLFLOW_*)
 import os
 import json
 import time
@@ -33,6 +34,11 @@ from dataset_and_ml_engine import (
 from soft_plc_opcua import SoftPLCController, SoftPLCOPCUAServer
 from uns_spc_and_alarms import UNSMQTTPublisher, SPCpChartEngine
 from cloud_async_and_copilot import StoreAndForwardCloudAuditor, GuardrailedQualityCopilot
+import mlops_api
+from mlops import registry as model_registry
+from mlops import trainer as mlops_trainer
+from mlops import datasets as mlops_datasets
+from mlops.jobs import RetrainJobManager
 
 app = FastAPI(title="VisionSCADA AI Twin — Edge AOI, Soft-PLC, MLOps & UNS")
 app.add_middleware(
@@ -104,6 +110,8 @@ class VisionTwinRuntime:
         self.spc_engine = SPCpChartEngine(subgroup_size=10, baseline_p=0.06)
         self.cloud_auditor = StoreAndForwardCloudAuditor()
         self.copilot = GuardrailedQualityCopilot()
+        self.retrain_jobs = RetrainJobManager(mlops_trainer.train_recipe, on_done=self._on_retrain_done)
+        self._mlops_tags_ts = 0.0
 
         self.serial_seq = 1000
         self.last_inspection: Dict[str, Any] = {}
@@ -126,13 +134,12 @@ class VisionTwinRuntime:
         except Exception:
             pass
 
-        from dataset_and_ml_engine import MODELS_DIR
-        prod_file = MODELS_DIR / "CAST_100_v1_0_0_prod.joblib"
-        if not prod_file.exists():
-            metrics_summary = build_and_train_all_models(samples_per_class=45)
+        if not model_registry.has_champions():
+            metrics_summary = build_and_train_all_models()
         else:
             metrics_summary = {}
         self.edge_engine = EdgeVisionInferenceEngine()
+        self.refresh_mlops_tags(force=True)
 
         # Persist trained Production & Shadow model metrics in PostgreSQL model_registry
         conn = get_admin_conn()
@@ -253,13 +260,17 @@ class VisionTwinRuntime:
             self.shadow_matches += 1
         agreement_pct = round((self.shadow_matches / max(1, self.shadow_total)) * 100.0, 1)
 
-        psi_drift = round(random.uniform(0.24, 0.34), 3) if degrade else round(random.uniform(0.02, 0.06), 3)
-        if degrade:
+        # Real PSI over the rolling window of inspected frames vs. the champion's training reference
+        psi_drift = float(result.get("drift_psi", 0.0))
+        drift_status = result.get("drift_status", "WARMUP")
+        prev_drift_status = self.plc.udts["UDT_VisionCamera"].get("Drift_Status", "WARMUP")
+        if drift_status == "DRIFT" and prev_drift_status != "DRIFT":
             self.raise_isa18_alarm(
                 "ALM_MODEL_DRIFT_PSI",
                 "HIGH",
                 "UDT_VisionCamera",
-                f"Optical Data Drift detected (PSI={psi_drift} > 0.20). Brightness dropped to {result['brightness_mean']}.",
+                f"Optical Data Drift detected (PSI={psi_drift} > {self.edge_engine.references[recipe].alarm:.2f}, "
+                f"feature {result.get('drift_top_feature')}). Brightness {result['brightness_mean']}.",
             )
 
         # Decide if Cloud Async Audit should be queued (Store-and-Forward)
@@ -289,6 +300,9 @@ class VisionTwinRuntime:
         cam_udt["Shadow_Defect_Class"] = result["shadow_defect_class"]
         cam_udt["Shadow_Agreement_Pct"] = agreement_pct
         cam_udt["Drift_PSI_Score"] = psi_drift
+        cam_udt["Drift_Status"] = drift_status
+        cam_udt["Drift_Top_Feature"] = result.get("drift_top_feature", "")
+        cam_udt["Drift_PSI_Alarm"] = float(self.edge_engine.references[recipe].alarm) if self.edge_engine.references.get(recipe) else 0.2
         cam_udt["Lens_Fault_Active"] = degrade
         cam_udt["Last_Raw_URL"] = f"http://127.0.0.1:8020/{result['image_rel_path']}"
         cam_udt["Last_Heatmap_URL"] = f"http://127.0.0.1:8020/{result['heatmap_rel_path']}"
@@ -299,9 +313,16 @@ class VisionTwinRuntime:
         self.cloud_auditor.cloud_offline = bool(self.plc.scenario_cloud_outage)
         if self.plc.pending_promote_shadow:
             self.plc.pending_promote_shadow = False
-            new_ver = f"v1.2.{int(time.time()) % 100}-hitl"
-            self.edge_engine.promote_shadow_to_production(recipe, new_ver)
-            cam_udt["Edge_Model_Version"] = new_ver
+            try:
+                self.promote_model(recipe, "ignition_tag", "ML_Engineer")
+            except ValueError as e:
+                cam_udt["MLOps_Job_Message"] = f"Promoción rechazada: {e}"
+        if self.plc.pending_retrain:
+            self.plc.pending_retrain = False
+            res = self.start_retrain([recipe], "ignition_tag", "ML_Engineer", "Retrain_Cmd desde Ignition")
+            if not res.get("ok"):
+                cam_udt["MLOps_Job_Message"] = res.get("error", "")
+        self.refresh_mlops_tags()
 
         batch_udt = self.plc.udts["UDT_ProductionBatch"]
         if self.plc.scenario_bad_supplier_lot:
@@ -464,6 +485,92 @@ class VisionTwinRuntime:
         except Exception:
             pass
 
+    # ------------------------------------------------------------------ MLOps
+    def start_retrain(self, recipes: List[str], user: str, role: str, reason: str) -> Dict[str, Any]:
+        res = self.retrain_jobs.start(recipes, requested_by=user, reason=reason)
+        if res.get("ok"):
+            self.log_audit(user, role, "MODEL_RETRAIN_START", ",".join(recipes), None, res["job"]["job_id"])
+        self.refresh_mlops_tags(force=True)
+        return res
+
+    def _on_retrain_done(self, job: Dict[str, Any]) -> None:
+        if job.get("state") == "DONE":
+            self.edge_engine.reload_models()
+            for recipe, res in (job.get("result") or {}).items():
+                for reg in res.get("registered", []):
+                    self._persist_model_row(mlops_trainer.db_rows_for(recipe, reg["version"], "SHADOW"))
+        self.log_audit(job.get("requested_by", "system"), "ML_Engineer", f"MODEL_RETRAIN_{job.get('state')}",
+                       ",".join(job.get("recipes", [])), None, job.get("message", "")[:200])
+        self.refresh_mlops_tags(force=True)
+
+    def promote_model(self, recipe: str, user: str, role: str) -> Dict[str, Any]:
+        old_ver = model_registry.load()[recipe].get("champion")
+        res = self.edge_engine.promote_shadow_to_production(recipe)
+        new_ver = res["promoted_version"]
+        if self.plc.udts["UDT_ProductionBatch"]["Active_Recipe"] == recipe:
+            self.plc.udts["UDT_VisionCamera"]["Edge_Model_Version"] = new_ver
+            self.plc.udts["UDT_VisionCamera"]["Shadow_Model_Version"] = res.get("previous_version") or new_ver
+        self._persist_model_row(mlops_trainer.db_rows_for(recipe, new_ver, "PRODUCTION"))
+        if old_ver:
+            self._persist_model_row(mlops_trainer.db_rows_for(recipe, old_ver, "SHADOW"))
+        self.log_audit(user, role, "MODEL_PROMOTE", recipe, old_ver, new_ver)
+        self.refresh_mlops_tags(force=True)
+        return res
+
+    def _persist_model_row(self, m: Dict[str, Any]) -> None:
+        try:
+            conn = get_admin_conn()
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO model_registry (
+                        product_recipe, model_version, deployment_role, algorithm,
+                        accuracy, precision_score, recall_score, f1_score, roc_auc,
+                        train_samples, test_samples, confusion_matrix_json, artifact_path
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (product_recipe, model_version) DO UPDATE SET
+                        deployment_role = EXCLUDED.deployment_role,
+                        accuracy = EXCLUDED.accuracy,
+                        f1_score = EXCLUDED.f1_score,
+                        confusion_matrix_json = EXCLUDED.confusion_matrix_json
+                    """,
+                    (
+                        m["product_recipe"], m["model_version"], m["deployment_role"], m["algorithm"],
+                        m["accuracy"], m["precision_score"], m["recall_score"], m["f1_score"], m["roc_auc"],
+                        m["train_samples"], m["test_samples"], json.dumps(m["confusion_matrix_json"]), m["artifact_path"],
+                    ),
+                )
+            conn.close()
+        except Exception:
+            pass
+
+    def refresh_mlops_tags(self, force: bool = False) -> None:
+        """Publishes MLOps state into UDT_VisionCamera (-> OPC-UA -> Ignition tags)."""
+        now = time.time()
+        if not force and now - self._mlops_tags_ts < 2.0:
+            return
+        self._mlops_tags_ts = now
+        cam = self.plc.udts["UDT_VisionCamera"]
+        try:
+            recipe = self.plc.udts["UDT_ProductionBatch"]["Active_Recipe"]
+            st = mlops_api.recipe_status(recipe)
+            job = self.retrain_jobs.current
+            cam["MLOps_Job_State"] = job.get("state", "IDLE")
+            if job.get("message"):
+                cam["MLOps_Job_Message"] = str(job["message"])[:240]
+            cam["Edge_Model_Version"] = st["champion"]["version"] or cam["Edge_Model_Version"]
+            cam["Shadow_Model_Version"] = st["challenger"]["version"] or cam["Shadow_Model_Version"]
+            cam["Champion_F1"] = float(st["champion"]["metrics"].get("f1_weighted", 0.0))
+            cam["Challenger_F1"] = float(st["challenger"]["metrics"].get("f1_weighted", 0.0))
+            cam["Dataset_Version"] = st["dataset"]["fingerprint"]
+            cam["Dataset_Images"] = int(st["dataset"]["total"])
+            cam["Dataset_New_Images"] = int(st["dataset"]["new_since_champion"])
+            cam["Cloud_Mode"] = self.cloud_auditor.mode
+        except Exception:
+            pass
+
     def raise_isa18_alarm(self, code: str, priority: str, source_udt: str, message: str):
         try:
             conn = get_admin_conn()
@@ -510,6 +617,8 @@ class VisionTwinRuntime:
 
 
 runtime = VisionTwinRuntime()
+mlops_api.bind(runtime)
+app.include_router(mlops_api.router)
 
 
 async def plc_and_opcua_loop():
@@ -524,14 +633,15 @@ async def cloud_store_and_forward_loop():
     while True:
         runtime.cloud_auditor.cloud_offline = bool(runtime.plc.scenario_cloud_outage)
         if not runtime.cloud_auditor.cloud_offline and runtime.cloud_auditor.queue:
-            res = runtime.cloud_auditor.process_next_in_queue()
+            res = await asyncio.to_thread(runtime.cloud_auditor.process_next_in_queue)
             if res:
                 runtime.plc.udts["UDT_VisionCamera"]["Last_Cloud_Latency_ms"] = res["cloud_latency_ms"]
                 runtime.plc.udts["UDT_VisionCamera"]["Cloud_Queue_Pending"] = res["queue_remaining"]
                 runtime.plc.udts["UDT_VisionCamera"]["Cloud_Audit_State"] = "COMPLETED"
                 runtime.plc.udts["UDT_VisionCamera"]["Cloud_Diagnosis"] = res["cloud_diagnosis"]
+                runtime.plc.udts["UDT_VisionCamera"]["Cloud_Mode"] = runtime.cloud_auditor.mode
                 runtime.uns_mqtt.publish_uns("DDATA", "CloudAsyncAudit", res)
-            await asyncio.sleep(0.85)
+            await asyncio.sleep(0.1)
         else:
             await asyncio.sleep(0.5)
 
@@ -584,6 +694,7 @@ def get_live_state():
             "queue_pending": len(runtime.cloud_auditor.queue),
             "total_audited": runtime.cloud_auditor.total_audited,
             "last_latency_ms": runtime.cloud_auditor.last_cloud_latency_ms,
+            **runtime.cloud_auditor.stats(),
         },
         "active_alarms": alarms,
         "recipes_catalog": RECIPES,
@@ -791,6 +902,15 @@ def submit_human_feedback(req: HITLFeedbackRequest):
     finally:
         conn.close()
 
+    # Human label -> labeled image in the training dataset (used by the next retraining)
+    dataset_entry = None
+    try:
+        label = "OK" if req.corrected_status.upper() == "OK" else req.corrected_defect_class
+        dataset_entry = mlops_api.add_inspected_frame(req.serial_number, label, row["product_recipe"])
+        runtime.refresh_mlops_tags(force=True)
+    except Exception as e:
+        dataset_entry = {"ok": False, "error": str(e)}
+
     runtime.log_audit(
         req.inspector_user,
         req.inspector_role,
@@ -799,35 +919,19 @@ def submit_human_feedback(req: HITLFeedbackRequest):
         row["edge_defect_class"],
         f"{req.corrected_status}:{req.corrected_defect_class}",
     )
-    return {"ok": True, "serial_number": req.serial_number, "corrected_defect_class": req.corrected_defect_class}
+    return {"ok": True, "serial_number": req.serial_number, "corrected_defect_class": req.corrected_defect_class, "dataset": dataset_entry}
 
 
-@app.post("/api/mlops/promote")
+@app.post("/api/mlops/promote-legacy")
 def promote_shadow_model(req: PromoteModelRequest):
+    """Kept for old clients; same as POST /api/mlops/promote."""
     allowed = ROLE_PERMISSIONS.get(req.user_role, set())
     if "Promote_Model" not in allowed:
         raise HTTPException(status_code=403, detail=f"RBAC Denied: Only ML_Engineer or Plant_Manager can promote models.")
-
-    old_ver = runtime.plc.udts["UDT_VisionCamera"]["Edge_Model_Version"]
-    new_ver = f"v1.2.{int(time.time()) % 100}-hitl"
-    res = runtime.edge_engine.promote_shadow_to_production(req.product_recipe, new_ver)
-    runtime.plc.udts["UDT_VisionCamera"]["Edge_Model_Version"] = new_ver
-
-    conn = get_admin_conn()
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE model_registry
-            SET deployment_role = 'PRODUCTION', model_version = %s, trained_at = NOW()
-            WHERE product_recipe = %s AND deployment_role = 'SHADOW'
-            """,
-            (new_ver, req.product_recipe),
-        )
-    conn.close()
-
-    runtime.log_audit(req.user_name, req.user_role, "MODEL_PROMOTE", req.product_recipe, old_ver, new_ver)
-    return res
+    try:
+        return runtime.promote_model(req.product_recipe, req.user_name, req.user_role)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @app.post("/api/alarms/ack")

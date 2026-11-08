@@ -35,6 +35,7 @@ PLC_WRITABLE_TAGS = {
     ("UDT_VisionCamera", "Light_Ring_PWM"): float,
     ("UDT_VisionCamera", "Confidence_Threshold"): float,
     ("UDT_VisionCamera", "Promote_Shadow_Cmd"): bool,
+    ("UDT_VisionCamera", "Retrain_Cmd"): bool,
     ("UDT_RejectActuator", "Clear_Bin_Cmd"): bool,
     ("UDT_ProductionBatch", "Active_Recipe"): str,
     ("UDT_ProductionBatch", "Recipe_Index"): int,
@@ -100,6 +101,7 @@ class SoftPLCController:
         self.scenario_dirty_lens_drift = False
         self.scenario_cloud_outage = False
         self.pending_promote_shadow = False
+        self.pending_retrain = False
 
         # 4 Structured UDT Tag Trees
         self.udts: Dict[str, Dict[str, Any]] = {
@@ -138,6 +140,19 @@ class SoftPLCController:
                 "Cloud_Audit_State": "COMPLETED",
                 "Cloud_Diagnosis": "Auditoría Cloud Multimodal: Superficie y geometría dentro de tolerancia ISO.",
                 "Promote_Shadow_Cmd": False,
+                # ---- MLOps (retraining from the HMI / 3D twin, MLflow + DVC) ----
+                "Retrain_Cmd": False,
+                "MLOps_Job_State": "IDLE",
+                "MLOps_Job_Message": "",
+                "Champion_F1": 0.0,
+                "Challenger_F1": 0.0,
+                "Dataset_Version": "",
+                "Dataset_Images": 0,
+                "Dataset_New_Images": 0,
+                "Drift_Status": "WARMUP",
+                "Drift_Top_Feature": "",
+                "Drift_PSI_Alarm": 0.2,
+                "Cloud_Mode": "",
             },
             "UDT_RejectActuator": {
                 "Solenoid_Active": False,
@@ -250,6 +265,10 @@ class SoftPLCController:
         if udt_name == "UDT_VisionCamera" and tag_name == "Promote_Shadow_Cmd" and cast_val:
             self.pending_promote_shadow = True
             self.udts["UDT_VisionCamera"]["Promote_Shadow_Cmd"] = False
+
+        if udt_name == "UDT_VisionCamera" and tag_name == "Retrain_Cmd" and cast_val:
+            self.pending_retrain = True
+            self.udts["UDT_VisionCamera"]["Retrain_Cmd"] = False
 
         if udt_name == "UDT_RejectActuator" and tag_name == "Clear_Bin_Cmd" and cast_val:
             self.udts["UDT_RejectActuator"]["Bin_Count"] = 0

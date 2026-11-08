@@ -1,0 +1,2 @@
+# DVC ignore patterns (same syntax as .gitignore)
+.download_state/
