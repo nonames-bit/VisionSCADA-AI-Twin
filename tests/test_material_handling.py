@@ -25,7 +25,7 @@ def plc(monkeypatch):
             v = next(verdicts)
             n = next(clock)
             ctrl.register_inspection(
-                f"T-{n:05d}", "CAST_100", v, "OK" if v == "OK" else "Porosity_Pinhole",
+                f"T-{n:05d}", ctrl.udts["UDT_ProductionBatch"]["Active_Recipe"], v, "OK" if v == "OK" else "Porosity_Pinhole",
                 "PASS_CONVEYOR" if v == "OK" else "REJECT_PNEUMATIC",
             )
             return {}
@@ -107,3 +107,22 @@ def test_no_deadlock_when_line_stops_while_agv_serves_infeed(plc):
     plc.run(90)
     assert mh["AGV_Swaps_Total"] >= 2
     assert plc.udts["UDT_ConveyorAxis"]["Running_FB"] is True
+
+
+def test_recipe_changeover_drains_belt_before_switching(plc):
+    plc.run(8)
+    assert plc.fifo_queue, "parts on the belt before the format change"
+    picks = plc.udts["UDT_MaterialHandling"]["Robot_Picks_Total"]
+    assert plc.write_udt_tag("UDT_ProductionBatch", "Recipe_Index", 4)["ok"]
+    batch = plc.udts["UDT_ProductionBatch"]
+    assert batch["Changeover_Active"] and batch["Pending_Recipe"] == "STEEL_600"
+    assert batch["Active_Recipe"] == "CAST_100"  # parts already on the belt keep their recipe
+    plc.run(20)
+    assert batch["Active_Recipe"] == "STEEL_600" and not batch["Changeover_Active"]
+    assert batch["Batch_Code"] == "LOT-STEEL-2026-05"
+    assert all(it["product_recipe"] == "STEEL_600" for it in plc.fifo_queue)
+    assert plc.udts["UDT_MaterialHandling"]["Robot_Picks_Total"] > picks + 1
+
+
+def test_unknown_recipe_is_rejected(plc):
+    assert not plc.write_udt_tag("UDT_ProductionBatch", "Active_Recipe", "BANANA_1")["ok"]

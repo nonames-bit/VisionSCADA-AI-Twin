@@ -32,6 +32,18 @@
     "UDT_VisionCamera__Cloud_Audit_State": "COMPLETED",
     "UDT_VisionCamera__Cloud_Diagnosis": "Auditor\u00eda Cloud Multimodal: Superficie y geometr\u00eda dentro de tolerancia ISO.",
     "UDT_VisionCamera__Promote_Shadow_Cmd": false,
+    "UDT_VisionCamera__Retrain_Cmd": false,
+    "UDT_VisionCamera__MLOps_Job_State": "IDLE",
+    "UDT_VisionCamera__MLOps_Job_Message": "",
+    "UDT_VisionCamera__Champion_F1": 0.0,
+    "UDT_VisionCamera__Challenger_F1": 0.0,
+    "UDT_VisionCamera__Dataset_Version": "",
+    "UDT_VisionCamera__Dataset_Images": 0,
+    "UDT_VisionCamera__Dataset_New_Images": 0,
+    "UDT_VisionCamera__Drift_Status": "WARMUP",
+    "UDT_VisionCamera__Drift_Top_Feature": "",
+    "UDT_VisionCamera__Drift_PSI_Alarm": 0.2,
+    "UDT_VisionCamera__Cloud_Mode": "",
     "UDT_RejectActuator__Solenoid_Active": false,
     "UDT_RejectActuator__Pass_Total": 0,
     "UDT_RejectActuator__Reject_Total": 0,
@@ -44,6 +56,8 @@
     "UDT_RejectActuator__Travel_Window_ms": 1480.0,
     "UDT_ProductionBatch__Active_Recipe": "CAST_100",
     "UDT_ProductionBatch__Recipe_Index": 0,
+    "UDT_ProductionBatch__Pending_Recipe": "",
+    "UDT_ProductionBatch__Changeover_Active": false,
     "UDT_ProductionBatch__Batch_Code": "LOT-CAST-2026-01",
     "UDT_ProductionBatch__Supplier_Code": "SUP-MTY-01",
     "UDT_ProductionBatch__Supplier_Name": "Fundiciones del Norte S.A. (Monterrey, MX)",
@@ -475,6 +489,150 @@
         }
       }
     },
+    "custom.UDT_VisionCamera__Retrain_Cmd": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Retrain_Cmd",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__MLOps_Job_State": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/MLOps_Job_State",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__MLOps_Job_Message": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/MLOps_Job_Message",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Champion_F1": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Champion_F1",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Challenger_F1": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Challenger_F1",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Dataset_Version": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Dataset_Version",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Dataset_Images": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Dataset_Images",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Dataset_New_Images": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Dataset_New_Images",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Drift_Status": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_Status",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Drift_Top_Feature": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_Top_Feature",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Drift_PSI_Alarm": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Drift_PSI_Alarm",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_VisionCamera__Cloud_Mode": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_VisionCamera/Cloud_Mode",
+          "bidirectional": false
+        }
+      }
+    },
     "custom.UDT_RejectActuator__Solenoid_Active": {
       "persistent": true,
       "binding": {
@@ -616,6 +774,30 @@
           "fallbackDelay": 2.5,
           "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Recipe_Index",
           "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Pending_Recipe": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Pending_Recipe",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_ProductionBatch__Changeover_Active": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Changeover_Active",
+          "bidirectional": false
         }
       }
     },
@@ -1367,7 +1549,7 @@
             },
             "type": "ia.container.flex",
             "position": {
-              "basis": "16%",
+              "basis": "30%",
               "grow": 1
             },
             "props": {
@@ -1377,7 +1559,8 @@
                 "backgroundColor": "#0F172A",
                 "border": "1px solid #38BDF8",
                 "borderRadius": "8px",
-                "padding": "4px 8px"
+                "padding": "4px 6px",
+                "gap": "3px"
               }
             },
             "children": [
@@ -1391,7 +1574,7 @@
                     "binding": {
                       "type": "expr",
                       "config": {
-                        "expression": "case({view.custom.UDT_ProductionBatch__Recipe_Index}, 0, 'Lote 1: CAST_100 (Fundici\u00f3n)', 1, 'Lote 2: PACK_200 (MVTec Vial)', 'Lote 3: PCB_300 (DeepPCB)')"
+                        "expression": "if({view.custom.UDT_ProductionBatch__Changeover_Active}, concat('\u23f3 Cambio de formato \u2192 ', {view.custom.UDT_ProductionBatch__Pending_Recipe}, ' (vaciando banda)'), concat('Receta activa: ', {view.custom.UDT_ProductionBatch__Active_Recipe}, ' \u00b7 ', {view.custom.UDT_ProductionBatch__Batch_Code}))"
                       }
                     }
                   }
@@ -1406,26 +1589,363 @@
               },
               {
                 "meta": {
-                  "name": "Card_Recipe_Slider"
+                  "name": "Card_Recipe_Buttons"
                 },
-                "type": "ia.input.slider",
-                "propConfig": {
-                  "props.value": {
-                    "binding": {
-                      "type": "property",
-                      "config": {
-                        "bidirectional": true,
-                        "path": "view.custom.UDT_ProductionBatch__Recipe_Index"
+                "type": "ia.container.flex",
+                "position": {
+                  "basis": "28px",
+                  "shrink": 0
+                },
+                "props": {
+                  "direction": "row",
+                  "style": {
+                    "gap": "3px"
+                  }
+                },
+                "children": [
+                  {
+                    "meta": {
+                      "name": "Btn_Recipe_CAST_100"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "0px",
+                      "grow": 1
+                    },
+                    "props": {
+                      "text": "\u2699\ufe0f Fundici\u00f3n",
+                      "style": {
+                        "fontSize": "10px",
+                        "fontWeight": "700",
+                        "borderRadius": "6px",
+                        "padding": "2px 4px",
+                        "minWidth": "0px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.style.backgroundColor": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 0, '#0369A1', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'CAST_100', '#92400E', '#1E293B'))"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 0 || {view.custom.UDT_ProductionBatch__Pending_Recipe} = 'CAST_100', '#F8FAFC', '#94A3B8')"
+                          }
+                        }
+                      },
+                      "props.style.border": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 0, '1px solid #38BDF8', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'CAST_100', '1px solid #F59E0B', '1px solid #334155'))"
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tself.view.custom.UDT_ProductionBatch__Recipe_Index = 0"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Recipe_PACK_200"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "0px",
+                      "grow": 1
+                    },
+                    "props": {
+                      "text": "\ud83d\udc8a Pastilla",
+                      "style": {
+                        "fontSize": "10px",
+                        "fontWeight": "700",
+                        "borderRadius": "6px",
+                        "padding": "2px 4px",
+                        "minWidth": "0px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.style.backgroundColor": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 1, '#0369A1', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'PACK_200', '#92400E', '#1E293B'))"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 1 || {view.custom.UDT_ProductionBatch__Pending_Recipe} = 'PACK_200', '#F8FAFC', '#94A3B8')"
+                          }
+                        }
+                      },
+                      "props.style.border": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 1, '1px solid #38BDF8', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'PACK_200', '1px solid #F59E0B', '1px solid #334155'))"
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tself.view.custom.UDT_ProductionBatch__Recipe_Index = 1"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Recipe_PCB_300"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "0px",
+                      "grow": 1
+                    },
+                    "props": {
+                      "text": "\ud83d\udfe9 PCB",
+                      "style": {
+                        "fontSize": "10px",
+                        "fontWeight": "700",
+                        "borderRadius": "6px",
+                        "padding": "2px 4px",
+                        "minWidth": "0px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.style.backgroundColor": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 2, '#0369A1', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'PCB_300', '#92400E', '#1E293B'))"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 2 || {view.custom.UDT_ProductionBatch__Pending_Recipe} = 'PCB_300', '#F8FAFC', '#94A3B8')"
+                          }
+                        }
+                      },
+                      "props.style.border": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 2, '1px solid #38BDF8', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'PCB_300', '1px solid #F59E0B', '1px solid #334155'))"
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tself.view.custom.UDT_ProductionBatch__Recipe_Index = 2"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Recipe_CAPS_400"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "0px",
+                      "grow": 1
+                    },
+                    "props": {
+                      "text": "\ud83e\uddea C\u00e1psulas",
+                      "style": {
+                        "fontSize": "10px",
+                        "fontWeight": "700",
+                        "borderRadius": "6px",
+                        "padding": "2px 4px",
+                        "minWidth": "0px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.style.backgroundColor": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 3, '#0369A1', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'CAPS_400', '#92400E', '#1E293B'))"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 3 || {view.custom.UDT_ProductionBatch__Pending_Recipe} = 'CAPS_400', '#F8FAFC', '#94A3B8')"
+                          }
+                        }
+                      },
+                      "props.style.border": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 3, '1px solid #38BDF8', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'CAPS_400', '1px solid #F59E0B', '1px solid #334155'))"
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tself.view.custom.UDT_ProductionBatch__Recipe_Index = 3"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Recipe_STEEL_600"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "0px",
+                      "grow": 1
+                    },
+                    "props": {
+                      "text": "\ud83d\udfeb Acero",
+                      "style": {
+                        "fontSize": "10px",
+                        "fontWeight": "700",
+                        "borderRadius": "6px",
+                        "padding": "2px 4px",
+                        "minWidth": "0px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.style.backgroundColor": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 4, '#0369A1', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'STEEL_600', '#92400E', '#1E293B'))"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 4 || {view.custom.UDT_ProductionBatch__Pending_Recipe} = 'STEEL_600', '#F8FAFC', '#94A3B8')"
+                          }
+                        }
+                      },
+                      "props.style.border": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 4, '1px solid #38BDF8', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'STEEL_600', '1px solid #F59E0B', '1px solid #334155'))"
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tself.view.custom.UDT_ProductionBatch__Recipe_Index = 4"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "meta": {
+                      "name": "Btn_Recipe_SCREW_700"
+                    },
+                    "type": "ia.input.button",
+                    "position": {
+                      "basis": "0px",
+                      "grow": 1
+                    },
+                    "props": {
+                      "text": "\ud83d\udd29 Tornillo",
+                      "style": {
+                        "fontSize": "10px",
+                        "fontWeight": "700",
+                        "borderRadius": "6px",
+                        "padding": "2px 4px",
+                        "minWidth": "0px"
+                      }
+                    },
+                    "propConfig": {
+                      "props.style.backgroundColor": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 5, '#0369A1', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'SCREW_700', '#92400E', '#1E293B'))"
+                          }
+                        }
+                      },
+                      "props.style.color": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 5 || {view.custom.UDT_ProductionBatch__Pending_Recipe} = 'SCREW_700', '#F8FAFC', '#94A3B8')"
+                          }
+                        }
+                      },
+                      "props.style.border": {
+                        "binding": {
+                          "type": "expr",
+                          "config": {
+                            "expression": "if({view.custom.UDT_ProductionBatch__Recipe_Index} = 5, '1px solid #38BDF8', if({view.custom.UDT_ProductionBatch__Pending_Recipe} = 'SCREW_700', '1px solid #F59E0B', '1px solid #334155'))"
+                          }
+                        }
+                      }
+                    },
+                    "events": {
+                      "component": {
+                        "onActionPerformed": {
+                          "type": "script",
+                          "scope": "G",
+                          "config": {
+                            "script": "\tself.view.custom.UDT_ProductionBatch__Recipe_Index = 5"
+                          }
+                        }
                       }
                     }
                   }
-                },
-                "props": {
-                  "min": 0,
-                  "max": 2,
-                  "step": 1,
-                  "color": "#38BDF8"
-                }
+                ]
               }
             ]
           },

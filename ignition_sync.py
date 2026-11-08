@@ -189,6 +189,73 @@ def _slider_card(
     }
 
 
+# Recipe picker: one button per product (replaces the old 0..2 slider)
+RECIPE_BUTTONS = [
+    ("CAST_100", "⚙️", "Fundición"),
+    ("PACK_200", "💊", "Pastilla"),
+    ("PCB_300", "🟩", "PCB"),
+    ("CAPS_400", "🧪", "Cápsulas"),
+    ("STEEL_600", "🟫", "Acero"),
+    ("SCREW_700", "🔩", "Tornillo"),
+]
+
+
+def _recipe_picker_card(basis: str = "30%") -> Dict[str, Any]:
+    idx = "{view.custom.UDT_ProductionBatch__Recipe_Index}"
+    pending = "{view.custom.UDT_ProductionBatch__Pending_Recipe}"
+    buttons = []
+    for i, (code, icon, label) in enumerate(RECIPE_BUTTONS):
+        buttons.append({
+            "meta": {"name": f"Btn_Recipe_{code}"},
+            "type": "ia.input.button",
+            "position": {"basis": "0px", "grow": 1},
+            "props": {
+                "text": f"{icon} {label}",
+                "style": {"fontSize": "10px", "fontWeight": "700", "borderRadius": "6px", "padding": "2px 4px", "minWidth": "0px"},
+            },
+            "propConfig": {
+                "props.style.backgroundColor": {"binding": {"type": "expr", "config": {
+                    "expression": f"if({idx} = {i}, '#0369A1', if({pending} = '{code}', '#92400E', '#1E293B'))"}}},
+                "props.style.color": {"binding": {"type": "expr", "config": {
+                    "expression": f"if({idx} = {i} || {pending} = '{code}', '#F8FAFC', '#94A3B8')"}}},
+                "props.style.border": {"binding": {"type": "expr", "config": {
+                    "expression": f"if({idx} = {i}, '1px solid #38BDF8', if({pending} = '{code}', '1px solid #F59E0B', '1px solid #334155'))"}}},
+            },
+            "events": {"component": {"onActionPerformed": {
+                "type": "script", "scope": "G",
+                "config": {"script": f"\tself.view.custom.UDT_ProductionBatch__Recipe_Index = {i}"},
+            }}},
+        })
+    return {
+        "meta": {"name": "Card_Recipe"},
+        "type": "ia.container.flex",
+        "position": {"basis": basis, "grow": 1},
+        "props": {
+            "direction": "column",
+            "justify": "center",
+            "style": {"backgroundColor": "#0F172A", "border": "1px solid #38BDF8", "borderRadius": "8px", "padding": "4px 6px", "gap": "3px"},
+        },
+        "children": [
+            {
+                "meta": {"name": "Card_Recipe_Lbl"},
+                "type": "ia.display.label",
+                "propConfig": {"props.text": {"binding": {"type": "expr", "config": {"expression":
+                    "if({view.custom.UDT_ProductionBatch__Changeover_Active}, "
+                    "concat('⏳ Cambio de formato → ', " + pending + ", ' (vaciando banda)'), "
+                    "concat('Receta activa: ', {view.custom.UDT_ProductionBatch__Active_Recipe}, ' · ', {view.custom.UDT_ProductionBatch__Batch_Code}))"}}}},
+                "props": {"style": {"fontSize": "10.5px", "fontWeight": "800", "color": "#38BDF8"}},
+            },
+            {
+                "meta": {"name": "Card_Recipe_Buttons"},
+                "type": "ia.container.flex",
+                "position": {"basis": "28px", "shrink": 0},
+                "props": {"direction": "row", "style": {"gap": "3px"}},
+                "children": buttons,
+            },
+        ],
+    }
+
+
 def _switch_card(
     name: str,
     title_text: str,
@@ -443,17 +510,7 @@ def build_native_perspective_view() -> Dict[str, Any]:
                         "style": {"gap": "6px"},
                     },
                     "children": [
-                        _slider_card(
-                            "Card_Recipe",
-                            "#38BDF8",
-                            "case({view.custom.UDT_ProductionBatch__Recipe_Index}, 0, 'Lote 1: CAST_100 (Fundición)', 1, 'Lote 2: PACK_200 (MVTec Vial)', 'Lote 3: PCB_300 (DeepPCB)')",
-                            "#38BDF8",
-                            "view.custom.UDT_ProductionBatch__Recipe_Index",
-                            0,
-                            2,
-                            1,
-                            "16%",
-                        ),
+                        _recipe_picker_card(),
                         _slider_card(
                             "Card_Speed",
                             "#10B981",

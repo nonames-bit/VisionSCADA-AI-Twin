@@ -1449,8 +1449,8 @@
       const TW = 0.24, TD = 0.17;
       const trayMat = new THREE.MeshPhysicalMaterial({ color: 0xdfe6ea, roughness: 0.25, transmission: 0.55, thickness: 0.01, transparent: true, opacity: 0.9 });
       const foil = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 1, roughness: 0.32 });
-      const capA = new THREE.MeshPhysicalMaterial({ color: 0x2f8f4e, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08 });
-      const capB = new THREE.MeshPhysicalMaterial({ color: 0xe9e3c9, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.08 });
+      const capA = new THREE.MeshPhysicalMaterial({ color: 0x0f7a3a, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08 });
+      const capB = new THREE.MeshPhysicalMaterial({ color: 0xd8463a, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.08 });
       const base = box(TW, 0.004, TD, foil, 0.002); base.position.y = 0.002; g.add(base);
       const half = new THREE.CapsuleGeometry(0.016, 0.034, 6, 20);
       for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
@@ -1902,6 +1902,7 @@
     // Live state from the Soft-PLC (/api/state)
     // =====================================================================
     let liveState = null;
+    let lastChangeover = '';
     let pollTime = performance.now();
     let lastKnownSerial = '';
     let flash = 0;
@@ -1918,7 +1919,17 @@
         const batch = liveState.udts.UDT_ProductionBatch;
         const rej = liveState.udts.UDT_RejectActuator || {};
 
-        document.getElementById('hudRecipe').textContent = batch.Active_Recipe;
+        const hr = document.getElementById('hudRecipe');
+        if (batch.Changeover_Active) {
+          hr.textContent = batch.Active_Recipe + ' → ' + batch.Pending_Recipe;
+          hr.className = 'hud-badge nok';
+          if (lastChangeover !== batch.Pending_Recipe) toast('Cambio de formato a ' + batch.Pending_Recipe + ': el robot deja de alimentar y la banda se vacía');
+        } else {
+          hr.textContent = batch.Active_Recipe;
+          hr.className = 'hud-badge ok';
+          if (lastChangeover) toast('Formato ' + batch.Active_Recipe + ' listo: tote de entrada nuevo');
+        }
+        lastChangeover = batch.Changeover_Active ? batch.Pending_Recipe : '';
         document.getElementById('hudEncoder').textContent = conv.Encoder_mm.toFixed(0);
         document.getElementById('hudSpeed').textContent = conv.Actual_PPM.toFixed(0);
         document.getElementById('hudFifo').textContent = conv.FIFO_Queue_Depth;

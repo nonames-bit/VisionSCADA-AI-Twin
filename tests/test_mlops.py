@@ -114,3 +114,33 @@ def test_deeppcb_patches_have_real_labels_and_boxes():
         if label != "OK":
             assert any(b["label"] == label for b in bbs)
             assert all(0 <= b["x"] < 256 and 0 <= b["y"] < 256 for b in bbs)
+
+
+def test_every_recipe_has_a_synthetic_fallback_for_each_class():
+    import random
+    from dataset_and_ml_engine import render_synthetic_sample
+    from mlops.catalog import RECIPES
+    from soft_plc_opcua import IDX_BY_RECIPE
+    from cloud_async_and_copilot import SIM_DIAGNOSIS
+    for recipe, meta in RECIPES.items():
+        assert meta["classes"][0] == "OK" and recipe in IDX_BY_RECIPE
+        for label in meta["classes"]:
+            img, boxes = render_synthetic_sample(recipe, label, random.Random(1))
+            assert img.size[0] > 0 and all(b["label"] == label for b in boxes)
+            assert label in SIM_DIAGNOSIS
+
+
+def test_dataset_helpers_for_new_sources():
+    import io as _io
+    from PIL import Image as _Image
+    import download_real_datasets as d
+    m = _Image.new("L", (100, 50))
+    m.paste(255, (10, 5, 30, 25))
+    buf = _io.BytesIO(); m.save(buf, format="PNG")
+    assert d.mask_bbox(buf.getvalue(), (100, 50), "X") == [{"x": 25, "y": 25, "w": 51, "h": 102, "label": "X"}]
+    boxes = d.parse_voc("<annotation><object><name>patches</name><bndbox><xmin>0</xmin><ymin>0</ymin>"
+                        "<xmax>120</xmax><ymax>200</ymax></bndbox></object></annotation>")
+    assert boxes == [(0, 0, 120, 200, "patches")]
+    win = d.neu_ok_window(boxes, (200, 200))
+    assert win and win[0] >= 124 and win[2] - win[0] == d.NEU_OK_WINDOW
+    assert d.neu_ok_window([(0, 0, 200, 200, "crazing")], (200, 200)) is None
