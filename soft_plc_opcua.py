@@ -330,7 +330,7 @@ class SoftPLCController:
             mh["Infeed_Count"] = mh["Infeed_Capacity"]
         mh["AGV_Swaps_Total"] += 1
 
-    def _step_agv(self, dt: float):
+    def _step_agv(self, dt: float, running: bool):
         """AGV tote logistics: dock -> station -> swap totes -> dock."""
         mh = self.udts["UDT_MaterialHandling"]
         rej = self.udts["UDT_RejectActuator"]
@@ -496,7 +496,7 @@ class SoftPLCController:
 
         # 2. Material handling: AGV logistics, then the infeed robot places parts at 0 mm.
         #    Without a vision callback there is nothing to inspect, so the robot holds.
-        self._step_agv(dt)
+        self._step_agv(dt, running)
         self._step_robot(dt, running and on_camera_trigger_cb is not None, effective_interval)
 
         # 3. Advance parts in FIFO queue along conveyor; camera fires as a part crosses 300 mm

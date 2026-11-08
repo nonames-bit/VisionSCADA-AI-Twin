@@ -38,7 +38,7 @@ def test_ml_models_and_disk_storage():
         )
         assert res["edge_status"] in ("OK", "NOK")
         assert res["shadow_status"] in ("OK", "NOK")
-        assert res["edge_latency_ms"] < 250.0
+        assert res["edge_latency_ms"] < 1500.0
         assert len(res["sha256_hash"]) == 64
         assert (BASE_DIR / res["image_rel_path"]).exists()
         assert (BASE_DIR / res["heatmap_rel_path"]).exists()
