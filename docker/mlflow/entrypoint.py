@@ -32,7 +32,7 @@ os.execvp(
         "mlflow", "server",
         "--host", "0.0.0.0",
         "--port", "5000",
-        "--backend-store-uri", f"postgresql://{user}:{password}@{host}:5432/{db}",
+        "--backend-store-uri", f"postgresql+psycopg2://{user}:{password}@{host}:5432/{db}",
         "--serve-artifacts",
         "--artifacts-destination", os.getenv("MLFLOW_ARTIFACTS_DESTINATION", "s3://mlflow"),
     ],

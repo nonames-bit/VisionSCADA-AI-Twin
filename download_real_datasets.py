@@ -69,7 +69,7 @@ NEU_OK_WINDOW = 64  # px crop of the 200x200 NEU image that touches no annotated
 PCB_WINDOW = 160  # px of the 640x640 DeepPCB scan around each defect -> resized to 256
 
 
-def fetch(url: str, timeout: int = 30, retries: int = 4) -> bytes:
+def fetch(url: str, timeout: int = 30, retries: int = 6) -> bytes:
     headers = dict(UA)
     if "api.github.com" in url and os.getenv("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
@@ -80,7 +80,10 @@ def fetch(url: str, timeout: int = 30, retries: int = 4) -> bytes:
                 return r.read()
         except Exception as e:  # network hiccup -> exponential backoff
             last = e
-            time.sleep(2 ** attempt)
+            if "429" in str(e):
+                time.sleep(6 + 6 * attempt)
+            else:
+                time.sleep(2 ** attempt)
     raise RuntimeError(f"{url}: {last}")
 
 

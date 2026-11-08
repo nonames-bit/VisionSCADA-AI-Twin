@@ -6,6 +6,10 @@
     },
     "/vision-aoi": {
       "viewPath": "Celda_Vision_AOI_MLOps"
+    },
+    "/mlops": {
+      "title": "VisionSCADA AI Twin - MLOps",
+      "viewPath": "MLOps_Entrenamiento"
     }
   },
   "sharedDocks": {

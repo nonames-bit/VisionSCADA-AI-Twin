@@ -79,12 +79,10 @@ services:
     image: visionscada/mlflow:3.18.0
     container_name: twin-mlflow
     depends_on:
-      postgres-vision:
-        condition: service_started
       minio-init:
         condition: service_completed_successfully
     environment:
-      PG_HOST: postgres-vision
+      PG_HOST: twin-timescaledb
       PG_ADMIN_USER: twin
       PG_ADMIN_PASS: change_me
       MLFLOW_DB: mlflow
@@ -102,3 +100,8 @@ services:
 
 volumes:
   minio-data:
+
+networks:
+  default:
+    name: digitaltiwn_twin-net
+    external: true
