@@ -239,7 +239,7 @@ class VisionTwinRuntime:
         result["supplier_code"] = supplier_code
         result["batch_code"] = batch_code
 
-        # Write the verdict into the FIFO slot of the part at the camera (x = 300 mm)
+        # Write the verdict into the FIFO slot of the part at the camera
         self.plc.register_inspection(
             serial_number=serial_no,
             product_recipe=recipe,

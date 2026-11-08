@@ -35,7 +35,7 @@ flowchart LR
 ## 🚀 Key Industrial Features
 
 1. **Edge-First Deterministic Control vs. Cloud Async (*Store-and-Forward*)**:
-   - The **Edge Model (`v1.0.0`)** classifies parts in **`~12–18 ms`** well inside the physical travel window (`~480 ms`) between the camera sensor (`300 mm`) and pneumatic reject cylinder (`1100 mm`).
+   - The **Edge Model (`v1.0.0`)** classifies parts in **`~12–18 ms`** well inside the physical travel window (`~6.4 s` at 30 PPM) between the camera (`1300 mm`) and pneumatic reject cylinder (`4750 mm`).
    - If Edge inference exceeds `350 ms`, the **Soft-PLC Watchdog** triggers a fail-safe reject (`REJECT_WATCHDOG`) and raises a `CRITICAL` ISA-18.2 alarm.
    - Suspect or defective frames are queued asynchronously to the **Cloud Vision Auditor (`~850 ms`)** with full **Store-and-Forward buffering** if internet connectivity drops.
 2. **Multi-Recipe Selector (3 Datasets = 3 Dynamic 3D Meshes + 6 Trained Models)**:
@@ -73,8 +73,8 @@ cd C:\dev\VisionSCADA_AI_Twin
 
 - three.js r170 is vendored in `static/vendor/three/` (no internet needed on the OT network or inside the Ignition iframe).
 - PBR materials with procedural textures (epoxy floor, slotted aluminium profiles, rubber belt, cast iron, glass vials, PCB), factory-hall image-based lighting, 5000 K overhead panels, soft shadows, GTAO ambient occlusion, bloom and SMAA.
-- Parts follow the Soft-PLC FIFO (`pos_mm`, camera 300 mm → pusher 1100 mm), are pushed down the chute into the reject tote and pile up there (mirrors `Bin_Count`), OK parts drop into the OK tote.
-- Material handling (`UDT_MaterialHandling`): a 6-axis robot picks each part from the blue infeed tote and places it on the belt at 0 mm (`Robot_Cycle_Pct`); the camera fires when the part crosses 300 mm. An AGV with two roller lanes brings a fresh tote and takes the full one: reject tote at `Bin_Capacity`, OK tote at `OK_Bin_Capacity` (the line stops while either is full, `Line_Block_Reason`), infeed tote when `Infeed_Count` ≤ 8. Manual mode: `AGV_Auto_Mode=False` plus `Clear_Bin_Cmd`, `Clear_OK_Bin_Cmd`, `Refill_Infeed_Cmd`.
-- Counting photo-eyes (`UDT_PhotoSensors`): B3 before the pusher (980 mm), B4 at the outfeed into the OK tote (1400 mm) and B5 across the reject chute exit. `Bin_Count` and `OK_Bin_Count` are counted by B5 / B4.
+- Parts follow the Soft-PLC FIFO (`pos_mm` in real millimetres, 1:1 with the scene: robot drop 0 mm → camera 1300 mm → pusher 4750 mm → outfeed 6350 mm). The pusher fires and OK parts drop where the part actually is in the scene, so they never pass through the plate, are pushed down the chute into the reject tote and pile up there (mirrors `Bin_Count`), OK parts drop into the OK tote.
+- Material handling (`UDT_MaterialHandling`): a 6-axis robot picks each part from the blue infeed tote and places it on the belt at 0 mm (`Robot_Cycle_Pct`); the camera fires when the part crosses 1300 mm. An AGV with two roller lanes brings a fresh tote and takes the full one: reject tote at `Bin_Capacity`, OK tote at `OK_Bin_Capacity` (the line stops while either is full, `Line_Block_Reason`), infeed tote when `Infeed_Count` ≤ 8. Manual mode: `AGV_Auto_Mode=False` plus `Clear_Bin_Cmd`, `Clear_OK_Bin_Cmd`, `Refill_Infeed_Cmd`.
+- Counting photo-eyes (`UDT_PhotoSensors`): B3 before the pusher (4630 mm), B4 at the outfeed into the OK tote (6250 mm) and B5 across the reject chute exit. `Bin_Count` and `OK_Bin_Count` are counted by B5 / B4.
 - Quality toggle (button or `Q`): *Alta* (GTAO, 2048 shadows, glass transmission) / *Baja*; it auto-downgrades below ~28 FPS. `R` toggles auto-orbit.
 - Optional `.glb` overrides in `static/models/`: `conveyor.glb`, `vis_gantry.glb`, `reject_pusher.glb`, `part_impeller.glb`, `part_vial.glb`, `part_pcb.glb`.

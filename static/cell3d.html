@@ -333,7 +333,7 @@
           scene.add(mesh);
           partMeshes.set(key, mesh);
         }
-        const targetX = -3.1 + ((item.pos_mm - 100.0) / 1300.0) * 6.4;
+        const targetX = -3.1 + (item.pos_mm / 6350.0) * 6.4;  // PLC belt is 0..6350 mm
         mesh.position.x += (targetX - mesh.position.x) * 0.25;
         mesh.position.y = 1.03;
         if (item.actuated && item.plc_action !== 'PASS_CONVEYOR') {
