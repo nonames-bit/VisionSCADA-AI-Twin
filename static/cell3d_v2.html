@@ -1587,6 +1587,30 @@
     // (pose driven by UDT_MaterialHandling.Robot_Cycle_Pct)
     // =====================================================================
     const RB = { J1Y: 0.5, H0: 0.78, A1: 0.16, L1: 0.74, L2: 0.72, LT: 0.2 };
+    // Cast-housing helpers: side profiles extruded with rounded (bevelled) edges
+    function boneShape(y0, r0, y1, r1, waist = 0) {
+      // two circles on the y axis joined by tangent curves (pulled in by `waist`)
+      const d = y1 - y0, s = (r0 - r1) / d, c = Math.sqrt(Math.max(0, 1 - s * s));
+      const a = Math.atan2(s, c), b = Math.PI - a;
+      const sh = new THREE.Shape();
+      sh.moveTo(r0 * c, y0 + r0 * s);
+      sh.quadraticCurveTo((r0 * c + r1 * c) / 2 - waist, (y0 + r0 * s + y1 + r1 * s) / 2, r1 * c, y1 + r1 * s);
+      sh.absarc(0, y1, r1, a, b, false);
+      sh.quadraticCurveTo(-(r0 * c + r1 * c) / 2 + waist, (y0 + r0 * s + y1 + r1 * s) / 2, -r0 * c, y0 + r0 * s);
+      sh.absarc(0, y0, r0, b, a + Math.PI * 2, false);
+      return sh;
+    }
+    function castLink(shape, depth, mat, bevel = 0.025, alongX = false) {
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.002, depth - 2 * bevel), bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.8, bevelSegments: 5, curveSegments: 32 });
+      geo.translate(0, 0, -(depth - 2 * bevel) / 2);
+      if (alongX) geo.rotateZ(-Math.PI / 2);
+      geo.computeVertexNormals();
+      return new THREE.Mesh(geo, mat);
+    }
+    function lathe(points, mat, seg = 48) {
+      return new THREE.Mesh(new THREE.LatheGeometry(points.map(([r, y]) => new THREE.Vector2(r, y)), seg), mat);
+    }
+    const robotDark = M.paintDark;
     const robot = new THREE.Group();
     robot.position.set(ROBOT_BASE.x, 0, ROBOT_BASE.z);
     {
@@ -1595,47 +1619,104 @@
       [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
         const bolt = cyl(0.016, 0.016, 0.03, M.chrome, 12); bolt.position.set(sx * 0.29, 0.03, sz * 0.29); robot.add(bolt);
       });
-      const base = cyl(0.19, 0.21, 0.12, M.robotPaint, 40); base.position.y = 0.44; robot.add(base);
-      const conn = box(0.08, 0.06, 0.1, M.plasticBlack, 0.01); conn.position.set(-0.2, 0.43, 0); robot.add(conn);
-      robot.add(tube([new THREE.Vector3(-0.24, 0.43, 0), new THREE.Vector3(-0.4, 0.3, 0.05), new THREE.Vector3(-0.45, 0.02, 0.15), new THREE.Vector3(-0.9, 0.012, 0.2)], 0.018, M.cable, 40));
+      // J1 base casting (fixed)
+      const base = lathe([[0, 0], [0.25, 0], [0.25, 0.022], [0.235, 0.03], [0.215, 0.07], [0.2, 0.1], [0.2, 0.12], [0, 0.12]], M.robotPaint);
+      base.position.y = 0.38; robot.add(base);
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * Math.PI * 2;
+        const bolt = cyl(0.011, 0.011, 0.012, M.darkSteel, 10); bolt.position.set(Math.cos(a) * 0.23, 0.406, Math.sin(a) * 0.23); robot.add(bolt);
+      }
+      const conn = box(0.07, 0.06, 0.12, M.plasticBlack, 0.01); conn.position.set(-0.22, 0.43, 0); robot.add(conn);
+      robot.add(tube([new THREE.Vector3(-0.25, 0.43, 0), new THREE.Vector3(-0.4, 0.3, 0.05), new THREE.Vector3(-0.45, 0.02, 0.15), new THREE.Vector3(-0.9, 0.012, 0.2)], 0.018, M.cable, 40));
     }
     const rj1 = new THREE.Group(); rj1.position.y = RB.J1Y; robot.add(rj1);
+    const SH_Y = RB.H0 - RB.J1Y;
     {
-      const turret = cyl(0.17, 0.19, 0.16, M.robotPaint, 40); turret.position.y = 0.08; rj1.add(turret);
-      const shoulder = box(0.24, 0.24, 0.3, M.robotPaint, 0.05); shoulder.position.set(RB.A1 * 0.6, RB.H0 - RB.J1Y - 0.04, 0); rj1.add(shoulder);
-      const m2 = cyl(0.075, 0.075, 0.16, M.motorGrey, 24, 'z'); m2.position.set(RB.A1, RB.H0 - RB.J1Y, -0.23); rj1.add(m2);
-      const m1 = cyl(0.06, 0.06, 0.14, M.motorGrey, 24); m1.position.set(-0.1, 0.2, 0.1); rj1.add(m1);
+      // rotating column: ring + cast swivel housing rising to the shoulder
+      const ring = lathe([[0, 0], [0.205, 0], [0.205, 0.035], [0.19, 0.045], [0, 0.045]], robotDark); rj1.add(ring);
+      const col = new THREE.Shape();
+      col.moveTo(-0.19, 0.04);
+      col.lineTo(0.2, 0.04);
+      col.quadraticCurveTo(0.3, 0.06, 0.3, SH_Y - 0.06);
+      col.absarc(RB.A1, SH_Y, 0.15, -0.4, Math.PI * 0.95, false);
+      col.quadraticCurveTo(-0.05, SH_Y - 0.02, -0.19, 0.2);
+      col.lineTo(-0.19, 0.04);
+      const swivel = castLink(col, 0.34, M.robotPaint, 0.035); rj1.add(swivel);
+      // J1 + J2 servo motors with finned end bells
+      const motor = (len, r) => {
+        const g = new THREE.Group();
+        const body = cyl(r, r, len, M.motorGrey, 32); g.add(body);
+        const bell = cyl(r * 0.92, r * 0.8, 0.03, robotDark, 32); bell.position.y = len / 2 + 0.015; g.add(bell);
+        const plug = box(0.035, 0.03, 0.035, M.plasticBlack, 0.004); plug.position.set(r + 0.012, len * 0.3, 0); g.add(plug);
+        return g;
+      };
+      const m2 = motor(0.15, 0.072); m2.rotation.x = -Math.PI / 2; m2.position.set(RB.A1, SH_Y, -0.25); rj1.add(m2);
+      const m1 = motor(0.13, 0.058); m1.position.set(-0.13, 0.2, 0.12); rj1.add(m1);
     }
-    const rj2 = new THREE.Group(); rj2.position.set(RB.A1, RB.H0 - RB.J1Y, 0); rj1.add(rj2);
+    const rj2 = new THREE.Group(); rj2.position.set(RB.A1, SH_Y, 0); rj1.add(rj2);
     {
-      const cap = cyl(0.12, 0.12, 0.26, M.robotPaint, 32, 'z'); rj2.add(cap);
-      const arm = box(0.15, RB.L1, 0.17, M.robotPaint, 0.04); arm.position.y = RB.L1 / 2; rj2.add(arm);
-      const capE = cyl(0.1, 0.1, 0.24, M.robotPaint, 32, 'z'); capE.position.y = RB.L1; rj2.add(capE);
-      const plateL = cyl(0.07, 0.07, 0.01, M.darkSteel, 24, 'z'); plateL.position.set(0, 0, 0.135); rj2.add(plateL);
-      rj2.add(tube([new THREE.Vector3(-0.09, 0.1, 0.06), new THREE.Vector3(-0.11, RB.L1 * 0.5, 0.07), new THREE.Vector3(-0.09, RB.L1 - 0.1, 0.06)], 0.014, M.cableOrange, 20));
+      const arm = castLink(boneShape(0, 0.145, RB.L1, 0.11, 0.045), 0.2, M.robotPaint, 0.03); rj2.add(arm);
+      [-1, 1].forEach(sz => {
+        const panel = castLink(boneShape(0.16, 0.06, RB.L1 - 0.14, 0.05, 0.02), 0.012, robotDark, 0.004);
+        panel.position.z = sz * 0.101; rj2.add(panel);
+        const hub = lathe([[0, 0], [0.105, 0], [0.105, 0.012], [0.09, 0.03], [0, 0.03]], robotDark, 40);
+        hub.rotation.x = sz * Math.PI / 2; hub.position.z = sz * 0.1; rj2.add(hub);
+        const hubE = lathe([[0, 0], [0.08, 0], [0.08, 0.01], [0.068, 0.025], [0, 0.025]], robotDark, 40);
+        hubE.rotation.x = sz * Math.PI / 2; hubE.position.set(0, RB.L1, sz * 0.1); rj2.add(hubE);
+      });
+      const tag = decal(plateTex(['VS-R6', '6-AXIS · 12 kg'], { w: 256, h: 96, size: 30, bg: '#d9661a', fg: '#1b1b1b', border: '#1b1b1b', borderW: 4 }), 0.1, 0.038);
+      tag.position.set(0, RB.L1 * 0.5, 0.11); tag.rotation.z = Math.PI / 2; rj2.add(tag);
     }
     const rj3 = new THREE.Group(); rj3.position.y = RB.L1; rj2.add(rj3);
     {
-      const housing = box(0.2, 0.17, 0.2, M.robotPaint, 0.04); housing.position.set(0.02, 0, 0); rj3.add(housing);
-      const m3 = cyl(0.06, 0.06, 0.16, M.motorGrey, 24, 'x'); m3.position.set(-0.15, 0.02, 0); rj3.add(m3);
-      const fore = cyl(0.075, 0.055, RB.L2 - 0.12, M.robotPaint, 28, 'x'); fore.position.x = (RB.L2 - 0.12) / 2 + 0.06; rj3.add(fore);
+      // elbow casting with rear counter-mass, tapered forearm, wrist yoke
+      const elbow = castLink(boneShape(-0.2, 0.1, 0.12, 0.11, 0.0), 0.22, M.robotPaint, 0.03, true); rj3.add(elbow);
+      const fore = lathe([[0.088, 0], [0.084, 0.06], [0.07, RB.L2 - 0.36], [0.064, RB.L2 - 0.3], [0, RB.L2 - 0.3], [0, 0]], M.robotPaint, 40);
+      fore.rotation.z = -Math.PI / 2; fore.position.x = 0.1; rj3.add(fore);
+      const roll = cyl(0.074, 0.074, 0.025, robotDark, 40, 'x'); roll.position.x = 0.16; rj3.add(roll);
+      [-1, 1].forEach(sz => {
+        const yoke = castLink(boneShape(-0.2, 0.05, 0, 0.058, 0.0), 0.028, M.robotPaint, 0.008, true);
+        yoke.position.set(RB.L2, 0, sz * 0.07); rj3.add(yoke);
+      });
+      const yokeBase = cyl(0.064, 0.064, 0.05, M.robotPaint, 32, 'x'); yokeBase.position.x = RB.L2 - 0.21; rj3.add(yokeBase);
+      const m3 = cyl(0.055, 0.055, 0.14, M.motorGrey, 28, 'z'); m3.position.set(-0.17, 0.0, -0.17); rj3.add(m3);
+      [0.04, -0.04].forEach(dz => {
+        const m = cyl(0.033, 0.033, 0.1, M.motorGrey, 20, 'x'); m.position.set(-0.29, 0.03, dz); rj3.add(m);
+      });
     }
     const rj5 = new THREE.Group(); rj5.position.x = RB.L2; rj3.add(rj5);
     {
-      const wrist = cyl(0.06, 0.06, 0.14, M.robotPaint, 28, 'z'); rj5.add(wrist);
+      const wrist = cyl(0.052, 0.052, 0.112, M.robotPaint, 32, 'z'); rj5.add(wrist);
+      const stub = lathe([[0, -0.05], [0.042, -0.05], [0.05, -0.03], [0.05, 0]], M.robotPaint, 32); rj5.add(stub);
     }
     const rj6 = new THREE.Group(); rj5.add(rj6);
     const robotTipNode = new THREE.Group(); robotTipNode.position.y = -RB.LT; rj6.add(robotTipNode);
     const vacLedMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 0.05 });
     {
-      const flange = cyl(0.045, 0.05, 0.05, M.darkSteel, 24); flange.position.y = -0.07; rj6.add(flange);
-      const bar = box(0.24, 0.025, 0.07, M.alu, 0.006); bar.position.y = -0.11; rj6.add(bar);
-      const ejector = box(0.06, 0.035, 0.05, M.plasticBlack, 0.006); ejector.position.set(0, -0.085, 0.05); rj6.add(ejector);
-      const led = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), vacLedMat); led.position.set(0.02, -0.08, 0.077); rj6.add(led);
+      const flange = lathe([[0, -0.075], [0.05, -0.075], [0.05, -0.064], [0.042, -0.062], [0.042, -0.05]], M.darkSteel, 32); rj6.add(flange);
+      const adapter = cyl(0.03, 0.035, 0.03, M.alu, 24); adapter.position.y = -0.09; rj6.add(adapter);
+      const bar = box(0.24, 0.025, 0.07, M.alu, 0.006); bar.position.y = -0.115; rj6.add(bar);
+      const ejector = box(0.06, 0.035, 0.05, M.plasticBlack, 0.006); ejector.position.set(0, -0.09, 0.05); rj6.add(ejector);
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), vacLedMat); led.position.set(0.02, -0.085, 0.077); rj6.add(led);
       [[-0.09, -0.02], [0.09, -0.02], [-0.09, 0.02], [0.09, 0.02]].forEach(([x, z]) => {
-        const stem = cyl(0.006, 0.006, 0.05, M.chrome, 10); stem.position.set(x, -0.145, z); rj6.add(stem);
-        const cup = cyl(0.016, 0.024, 0.022, M.rubber, 16); cup.position.set(x, -0.18, z); rj6.add(cup);
+        const stem = cyl(0.006, 0.006, 0.05, M.chrome, 10); stem.position.set(x, -0.148, z); rj6.add(stem);
+        const cup = lathe([[0, -0.022], [0.024, -0.022], [0.024, -0.016], [0.012, 0]], M.rubber, 20); cup.position.set(x, -0.168, z); rj6.add(cup);
       });
+      rj6.add(tube([new THREE.Vector3(0.02, -0.075, 0.075), new THREE.Vector3(0.06, -0.03, 0.09), new THREE.Vector3(0.05, 0.04, 0.08)], 0.006, M.puHose, 16));
+    }
+    // dress pack (energy chain hose) from the swivel to the forearm, rebuilt as the arm moves
+    const dressMat = M.plasticBlack;
+    const dress = new THREE.Mesh(new THREE.BufferGeometry(), dressMat);
+    robot.add(dress);
+    const _dp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+    const DRESS_ANCHORS = [[rj1, -0.16, 0.3, 0.13], [rj2, -0.12, RB.L1 * 0.45, 0.13], [rj3, -0.22, 0.09, 0.12]];
+    function updateDressPack() {
+      robot.updateMatrixWorld(true);
+      DRESS_ANCHORS.forEach(([node, x, y, z], i) => { node.localToWorld(_dp[i].set(x, y, z)); robot.worldToLocal(_dp[i]); });
+      const mid = _dp[1].clone().lerp(_dp[2], 0.5); mid.x -= 0.05; mid.y += 0.05;
+      const curve = new THREE.CatmullRomCurve3([_dp[0], _dp[1], mid, _dp[2]]);
+      dress.geometry.dispose();
+      dress.geometry = new THREE.TubeGeometry(curve, 36, 0.024, 10, false);
     }
     shadowSet(robot);
     scene.add(robot);
@@ -1656,6 +1737,7 @@
       rj3.rotation.z = phi2 - j2;
       rj5.rotation.z = -phi2;
       rj6.rotation.y = -yaw;
+      updateDressPack();
     }
 
     // =====================================================================
@@ -1753,7 +1835,8 @@
 
     async function pollState() {
       try {
-        const res = await fetch('/api/state');
+        const apiUrl = (location.port === '8020') ? '/api/state' : 'http://' + (location.hostname || '127.0.0.1') + ':8020/api/state';
+        const res = await fetch(apiUrl);
         liveState = await res.json();
         pollTime = performance.now();
         const conv = liveState.udts.UDT_ConveyorAxis;
