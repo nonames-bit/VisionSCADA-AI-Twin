@@ -62,7 +62,32 @@
     "UDT_ProductionBatch__Scenario_Dirty_Lens": false,
     "UDT_ProductionBatch__Scenario_Cloud_Offline": false,
     "UDT_ProductionBatch__Copilot_RCA_Summary": "Proceso bajo control estad\u00edstico. Edge decide en ~14 ms dentro de la ventana del pist\u00f3n; Cloud audita en segundo plano.",
-    "UDT_ProductionBatch__Copilot_SQL_Query": "SELECT product_recipe, edge_defect_class, supplier_code, COUNT(*) FROM inspections GROUP BY 1,2,3;"
+    "UDT_ProductionBatch__Copilot_SQL_Query": "SELECT product_recipe, edge_defect_class, supplier_code, COUNT(*) FROM inspections GROUP BY 1,2,3;",
+    "UDT_MaterialHandling__Infeed_Count": 60,
+    "UDT_MaterialHandling__Infeed_Capacity": 60,
+    "UDT_MaterialHandling__OK_Bin_Count": 0,
+    "UDT_MaterialHandling__OK_Bin_Capacity": 50,
+    "UDT_MaterialHandling__Robot_State": "IDLE",
+    "UDT_MaterialHandling__Robot_Cycle_Pct": 0.0,
+    "UDT_MaterialHandling__Robot_Cycle_Time_s": 2.0,
+    "UDT_MaterialHandling__Robot_Picks_Total": 0,
+    "UDT_MaterialHandling__AGV_Auto_Mode": true,
+    "UDT_MaterialHandling__AGV_State": "PARKED",
+    "UDT_MaterialHandling__AGV_Target": "",
+    "UDT_MaterialHandling__AGV_Progress_Pct": 0.0,
+    "UDT_MaterialHandling__AGV_Leg_Time_s": 12.0,
+    "UDT_MaterialHandling__AGV_Swap_Time_s": 6.0,
+    "UDT_MaterialHandling__AGV_Swaps_Total": 0,
+    "UDT_MaterialHandling__AGV_Queue": "",
+    "UDT_MaterialHandling__Refill_Infeed_Cmd": false,
+    "UDT_MaterialHandling__Clear_OK_Bin_Cmd": false,
+    "UDT_MaterialHandling__Line_Block_Reason": "",
+    "UDT_PhotoSensors__PE_Pusher_Blocked": false,
+    "UDT_PhotoSensors__PE_Pusher_Count": 0,
+    "UDT_PhotoSensors__PE_RejectBin_Blocked": false,
+    "UDT_PhotoSensors__PE_RejectBin_Count": 0,
+    "UDT_PhotoSensors__PE_OKBin_Blocked": false,
+    "UDT_PhotoSensors__PE_OKBin_Count": 0
   },
   "params": {},
   "propConfig": {
@@ -818,6 +843,306 @@
           "mode": "direct",
           "fallbackDelay": 2.5,
           "tagPath": "[default]BrewSCADA/UDT_ProductionBatch/Copilot_SQL_Query",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Infeed_Count": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Infeed_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Infeed_Capacity": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Infeed_Capacity",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__OK_Bin_Count": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/OK_Bin_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__OK_Bin_Capacity": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/OK_Bin_Capacity",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Robot_State": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Robot_State",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Robot_Cycle_Pct": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Robot_Cycle_Pct",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Robot_Cycle_Time_s": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Robot_Cycle_Time_s",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Robot_Picks_Total": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Robot_Picks_Total",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Auto_Mode": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Auto_Mode",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_State": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_State",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Target": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Target",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Progress_Pct": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Progress_Pct",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Leg_Time_s": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Leg_Time_s",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Swap_Time_s": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Swap_Time_s",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Swaps_Total": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Swaps_Total",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__AGV_Queue": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/AGV_Queue",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Refill_Infeed_Cmd": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Refill_Infeed_Cmd",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Clear_OK_Bin_Cmd": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Clear_OK_Bin_Cmd",
+          "bidirectional": true
+        }
+      }
+    },
+    "custom.UDT_MaterialHandling__Line_Block_Reason": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_MaterialHandling/Line_Block_Reason",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_PhotoSensors__PE_Pusher_Blocked": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_PhotoSensors/PE_Pusher_Blocked",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_PhotoSensors__PE_Pusher_Count": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_PhotoSensors/PE_Pusher_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_PhotoSensors__PE_RejectBin_Blocked": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_PhotoSensors/PE_RejectBin_Blocked",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_PhotoSensors__PE_RejectBin_Count": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_PhotoSensors/PE_RejectBin_Count",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_PhotoSensors__PE_OKBin_Blocked": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_PhotoSensors/PE_OKBin_Blocked",
+          "bidirectional": false
+        }
+      }
+    },
+    "custom.UDT_PhotoSensors__PE_OKBin_Count": {
+      "persistent": true,
+      "binding": {
+        "type": "tag",
+        "config": {
+          "mode": "direct",
+          "fallbackDelay": 2.5,
+          "tagPath": "[default]BrewSCADA/UDT_PhotoSensors/PE_OKBin_Count",
           "bidirectional": false
         }
       }

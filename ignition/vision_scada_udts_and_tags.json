@@ -592,6 +592,243 @@
           "value": "SELECT product_recipe, edge_defect_class, supplier_code, COUNT(*) FROM inspections GROUP BY 1,2,3;"
         }
       ]
+    },
+    {
+      "name": "UDT_MaterialHandling",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "Infeed_Count",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Infeed_Count",
+          "value": 60
+        },
+        {
+          "name": "Infeed_Capacity",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Infeed_Capacity",
+          "value": 60
+        },
+        {
+          "name": "OK_Bin_Count",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.OK_Bin_Count",
+          "value": 0
+        },
+        {
+          "name": "OK_Bin_Capacity",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.OK_Bin_Capacity",
+          "value": 50
+        },
+        {
+          "name": "Robot_State",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Robot_State",
+          "value": "IDLE"
+        },
+        {
+          "name": "Robot_Cycle_Pct",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Robot_Cycle_Pct",
+          "value": 0.0
+        },
+        {
+          "name": "Robot_Cycle_Time_s",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Robot_Cycle_Time_s",
+          "value": 2.0
+        },
+        {
+          "name": "Robot_Picks_Total",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Robot_Picks_Total",
+          "value": 0
+        },
+        {
+          "name": "AGV_Auto_Mode",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Auto_Mode",
+          "value": true
+        },
+        {
+          "name": "AGV_State",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_State",
+          "value": "PARKED"
+        },
+        {
+          "name": "AGV_Target",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Target",
+          "value": ""
+        },
+        {
+          "name": "AGV_Progress_Pct",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Progress_Pct",
+          "value": 0.0
+        },
+        {
+          "name": "AGV_Leg_Time_s",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Leg_Time_s",
+          "value": 12.0
+        },
+        {
+          "name": "AGV_Swap_Time_s",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Float8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Swap_Time_s",
+          "value": 6.0
+        },
+        {
+          "name": "AGV_Swaps_Total",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Swaps_Total",
+          "value": 0
+        },
+        {
+          "name": "AGV_Queue",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.AGV_Queue",
+          "value": ""
+        },
+        {
+          "name": "Refill_Infeed_Cmd",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Refill_Infeed_Cmd",
+          "value": false
+        },
+        {
+          "name": "Clear_OK_Bin_Cmd",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Clear_OK_Bin_Cmd",
+          "value": false
+        },
+        {
+          "name": "Line_Block_Reason",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_MaterialHandling.Line_Block_Reason",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "name": "UDT_PhotoSensors",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "PE_Pusher_Blocked",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_PhotoSensors.PE_Pusher_Blocked",
+          "value": false
+        },
+        {
+          "name": "PE_Pusher_Count",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_PhotoSensors.PE_Pusher_Count",
+          "value": 0
+        },
+        {
+          "name": "PE_RejectBin_Blocked",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_PhotoSensors.PE_RejectBin_Blocked",
+          "value": false
+        },
+        {
+          "name": "PE_RejectBin_Count",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_PhotoSensors.PE_RejectBin_Count",
+          "value": 0
+        },
+        {
+          "name": "PE_OKBin_Blocked",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_PhotoSensors.PE_OKBin_Blocked",
+          "value": false
+        },
+        {
+          "name": "PE_OKBin_Count",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Int8",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_PhotoSensors.PE_OKBin_Count",
+          "value": 0
+        }
+      ]
     }
   ]
 }

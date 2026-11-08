@@ -1,10 +1,10 @@
 {
   "pages": {
-    "/vision-aoi": {
-      "viewPath": "Celda_Vision_AOI_MLOps"
-    },
     "/": {
       "title": "VisionSCADA AI Twin - Celda AOI & MLOps",
+      "viewPath": "Celda_Vision_AOI_MLOps"
+    },
+    "/vision-aoi": {
       "viewPath": "Celda_Vision_AOI_MLOps"
     }
   },
