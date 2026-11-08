@@ -114,7 +114,24 @@ class VisionTwinRuntime:
 
     def bootstrap_db_and_models(self):
         init_database()
-        metrics_summary = build_and_train_all_models(samples_per_class=45)
+        # Query highest inspection_id to avoid unique serial number collision
+        try:
+            conn = get_admin_conn()
+            with conn.cursor() as cur:
+                cur.execute("SELECT COALESCE(MAX(inspection_id), 0) FROM inspections")
+                row = cur.fetchone()
+                if row and row[0]:
+                    self.serial_seq = 1000 + int(row[0])
+            conn.close()
+        except Exception:
+            pass
+
+        from dataset_and_ml_engine import MODELS_DIR
+        prod_file = MODELS_DIR / "CAST_100_v1_0_0_prod.joblib"
+        if not prod_file.exists():
+            metrics_summary = build_and_train_all_models(samples_per_class=45)
+        else:
+            metrics_summary = {}
         self.edge_engine = EdgeVisionInferenceEngine()
 
         # Persist trained Production & Shadow model metrics in PostgreSQL model_registry

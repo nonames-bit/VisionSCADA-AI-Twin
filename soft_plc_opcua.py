@@ -359,8 +359,8 @@ class SoftPLCController:
             pct = min(100.0, pct + dt / leg * 100.0)
             mh["AGV_Progress_Pct"] = round(pct, 1)
             if pct >= 100.0:
-                # Do not pull the infeed tote while the robot is reaching into it
-                robot_in_tote = mh["AGV_Target"] == "INFEED" and self.robot_pct > 0.0 and not self.robot_holding
+                # Do not pull the infeed tote only if robot is actively moving into it while running
+                robot_in_tote = mh["AGV_Target"] == "INFEED" and running and self.robot_pct > 0.0 and not self.robot_holding
                 if not robot_in_tote:
                     mh["AGV_State"] = "SWAP"
                     mh["AGV_Progress_Pct"] = 0.0
@@ -386,6 +386,9 @@ class SoftPLCController:
         mh["Robot_Cycle_Time_s"] = round(cycle_s, 2)
         if not running:
             mh["Robot_State"] = "STOPPED"
+            if not self.robot_holding:
+                self.robot_pct = 0.0
+                mh["Robot_Cycle_Pct"] = 0.0
             return
         pct = self.robot_pct
         infeed_swapping = mh["AGV_Target"] == "INFEED" and mh["AGV_State"] == "SWAP"
