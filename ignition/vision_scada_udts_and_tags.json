@@ -190,7 +190,7 @@
           "dataType": "String",
           "opcServer": "BrewSCADA_OPCUA",
           "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Edge_Model_Version",
-          "value": "v1.0.0"
+          "value": "v1"
         },
         {
           "name": "Shadow_Model_Version",
@@ -199,7 +199,7 @@
           "dataType": "String",
           "opcServer": "BrewSCADA_OPCUA",
           "opcItemPath": "ns=2;s=BrewSCADA.UDT_VisionCamera.Shadow_Model_Version",
-          "value": "v1.1.0-shadow"
+          "value": "v2"
         },
         {
           "name": "Shadow_Status",
