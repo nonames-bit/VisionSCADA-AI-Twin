@@ -49,10 +49,10 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Role-Based Access Control (RBAC) Matrix
 ROLE_PERMISSIONS = {
-    "Operator": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd"},
-    "Quality_Engineer": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Active_Recipe", "Light_Ring_PWM", "HITL_Feedback"},
-    "ML_Engineer": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Active_Recipe", "Light_Ring_PWM", "Confidence_Threshold", "HITL_Feedback", "Promote_Model"},
-    "Plant_Manager": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Active_Recipe", "Light_Ring_PWM", "Confidence_Threshold", "HITL_Feedback", "Promote_Model"},
+    "Operator": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Refill_Infeed_Cmd", "Clear_OK_Bin_Cmd"},
+    "Quality_Engineer": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Refill_Infeed_Cmd", "Clear_OK_Bin_Cmd", "Active_Recipe", "Light_Ring_PWM", "HITL_Feedback"},
+    "ML_Engineer": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Refill_Infeed_Cmd", "Clear_OK_Bin_Cmd", "Active_Recipe", "Light_Ring_PWM", "Confidence_Threshold", "HITL_Feedback", "Promote_Model", "AGV_Auto_Mode"},
+    "Plant_Manager": {"Run_Cmd", "Speed_PPM_SP", "E_Stop_Active", "Clear_Bin_Cmd", "Refill_Infeed_Cmd", "Clear_OK_Bin_Cmd", "Active_Recipe", "Light_Ring_PWM", "Confidence_Threshold", "HITL_Feedback", "Promote_Model", "AGV_Auto_Mode"},
 }
 
 
@@ -221,17 +221,13 @@ class VisionTwinRuntime:
         result["supplier_code"] = supplier_code
         result["batch_code"] = batch_code
 
-        # Enqueue in Soft-PLC FIFO belt tracking at camera position x = 300 mm
-        self.plc.fifo_queue.append(
-            {
-                "serial_number": serial_no,
-                "product_recipe": recipe,
-                "edge_status": result["edge_status"],
-                "edge_defect_class": result["edge_defect_class"],
-                "plc_action": plc_action,
-                "pos_mm": 300.0,
-                "actuated": False,
-            }
+        # Write the verdict into the FIFO slot of the part at the camera (x = 300 mm)
+        self.plc.register_inspection(
+            serial_number=serial_no,
+            product_recipe=recipe,
+            edge_status=result["edge_status"],
+            edge_defect_class=result["edge_defect_class"],
+            plc_action=plc_action,
         )
 
         # Update Shadow agreement & Drift PSI score
