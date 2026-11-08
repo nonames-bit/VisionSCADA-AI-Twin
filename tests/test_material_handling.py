@@ -38,15 +38,16 @@ def plc(monkeypatch):
     return ctrl
 
 
-def test_robot_feeds_belt_and_camera_inspects_at_300mm(plc):
+def test_robot_feeds_belt_and_camera_inspects_at_camera_position(plc):
     plc.run(2.1)  # one robot cycle at 30 PPM
     item = plc.fifo_queue[0]
     assert item["track_id"].startswith("TRK-")
-    assert item["inspected"] is False and item["pos_mm"] < 300.0
-    plc.run(0.6)
+    assert item["inspected"] is False and item["pos_mm"] < soft_plc_opcua.CAMERA_POS_MM
+    plc.run(soft_plc_opcua.CAMERA_POS_MM / 540.0 + 0.2)  # belt runs 540 mm/s at 30 PPM
     assert item["inspected"] is True and item["serial_number"]
     assert plc.udts["UDT_VisionCamera"]["Trigger_Count"] == 1
-    assert plc.udts["UDT_MaterialHandling"]["Infeed_Count"] == 59
+    mh = plc.udts["UDT_MaterialHandling"]
+    assert mh["Infeed_Count"] == mh["Infeed_Capacity"] - mh["Robot_Picks_Total"] - (1 if plc.robot_holding else 0)
 
 
 def test_photo_eyes_count_every_part_into_its_tote(plc):
@@ -57,7 +58,7 @@ def test_photo_eyes_count_every_part_into_its_tote(plc):
     assert pe["PE_Pusher_Count"] > 0
     assert pe["PE_RejectBin_Count"] == rej["Reject_Total"] == rej["Bin_Count"]
     assert pe["PE_OKBin_Count"] == mh["OK_Bin_Count"]
-    on_belt_past_pusher = sum(1 for it in plc.fifo_queue if it["pos_mm"] >= 905.0)
+    on_belt_past_pusher = sum(1 for it in plc.fifo_queue if it["pos_mm"] >= soft_plc_opcua.PE_PUSHER_POS_MM - soft_plc_opcua.PE_BLOCK_HALF_MM)
     assert pe["PE_Pusher_Count"] == rej["Reject_Total"] + rej["Pass_Total"] + on_belt_past_pusher - sum(
         1 for it in plc.fifo_queue if it.get("actuated")
     )
@@ -96,3 +97,13 @@ def test_manual_mode_commands(plc):
     assert plc.write_udt_tag("UDT_MaterialHandling", "Clear_OK_Bin_Cmd", True)["ok"]
     assert mh["Infeed_Count"] == mh["Infeed_Capacity"] and mh["OK_Bin_Count"] == 0
     assert mh["Refill_Infeed_Cmd"] is False and mh["Clear_OK_Bin_Cmd"] is False
+
+
+def test_no_deadlock_when_line_stops_while_agv_serves_infeed(plc):
+    # AGV heading to the infeed while the OK tote fills up and stops the line mid robot cycle
+    mh = plc.udts["UDT_MaterialHandling"]
+    mh["Infeed_Count"] = 9
+    mh["OK_Bin_Count"] = mh["OK_Bin_Capacity"] - 1
+    plc.run(90)
+    assert mh["AGV_Swaps_Total"] >= 2
+    assert plc.udts["UDT_ConveyorAxis"]["Running_FB"] is True
