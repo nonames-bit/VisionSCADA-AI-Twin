@@ -985,6 +985,70 @@ def generate_udts_and_tags_export() -> Path:
     return out_file
 
 
+def _deploy_to_single_project(
+    container_name: str,
+    project_name: str,
+    local_view_file: Path,
+    local_res_file: Path,
+    sig: str,
+    set_as_root_page: bool = False,
+) -> None:
+    target_persp = f"/usr/local/bin/ignition/data/projects/{project_name}/com.inductiveautomation.perspective"
+    target_dir = f"{target_persp}/views/{VIEW_NAME}"
+    page_cfg_dir = f"{target_persp}/page-config"
+    page_cfg_path = f"{page_cfg_dir}/config.json"
+    resources_store = "/usr/local/bin/ignition/data/projects/.resources"
+
+    subprocess.run(
+        ["docker", "exec", container_name, "mkdir", "-p", target_dir, page_cfg_dir, resources_store],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["docker", "cp", str(local_view_file), f"{container_name}:{target_dir}/view.json"], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(local_res_file), f"{container_name}:{target_dir}/resource.json"], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(local_view_file), f"{container_name}:{resources_store}/{sig}"], check=True, capture_output=True)
+
+    # Read existing page-config/config.json if present, else create a clean one
+    res = subprocess.run(["docker", "exec", container_name, "cat", page_cfg_path], capture_output=True, text=True)
+    if res.returncode == 0 and res.stdout.strip():
+        page_cfg = json.loads(res.stdout)
+    else:
+        page_cfg = {"pages": {}, "sharedDocks": {"cornerPriority": "top-bottom"}}
+
+    pages = page_cfg.setdefault("pages", {})
+    pages["/vision-aoi"] = {"viewPath": VIEW_NAME}
+    pages["/"] = {"title": "VisionSCADA AI Twin - Celda AOI & MLOps", "viewPath": VIEW_NAME}
+
+    cfg_bytes = json.dumps(page_cfg, indent=2).encode("utf-8")
+    cfg_sig = hashlib.sha256(cfg_bytes).hexdigest()
+    local_page_cfg = IGN_DIR / f"page_config_{project_name}.json"
+    local_page_cfg.write_bytes(cfg_bytes)
+    local_page_res = IGN_DIR / f"page_resource_{project_name}.json"
+    local_page_res.write_bytes(
+        json.dumps(
+            {
+                "scope": "G",
+                "version": 1,
+                "restricted": False,
+                "overridable": True,
+                "files": ["config.json"],
+                "attributes": {
+                    "lastModificationSignature": cfg_sig,
+                    "lastModification": {
+                        "actor": "admin",
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    },
+                },
+            },
+            indent=2,
+        ).encode("utf-8")
+    )
+
+    subprocess.run(["docker", "cp", str(local_page_cfg), f"{container_name}:{page_cfg_path}"], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(local_page_res), f"{container_name}:{page_cfg_dir}/resource.json"], check=True, capture_output=True)
+    subprocess.run(["docker", "cp", str(local_page_cfg), f"{container_name}:{resources_store}/{cfg_sig}"], check=True, capture_output=True)
+
+
 def deploy_to_ignition_container(container_name: str = "twin-ignition", project_name: str = "DigitalTwin") -> Dict[str, Any]:
     VIEW_DIR.mkdir(parents=True, exist_ok=True)
     tags_file = generate_udts_and_tags_export()
@@ -1013,58 +1077,17 @@ def deploy_to_ignition_container(container_name: str = "twin-ignition", project_
     local_res_file = VIEW_DIR / "resource.json"
     local_res_file.write_bytes(json.dumps(res_data, indent=2).encode("utf-8"))
 
-    target_dir = f"/usr/local/bin/ignition/data/projects/{project_name}/com.inductiveautomation.perspective/views/{VIEW_NAME}"
-    resources_store = "/usr/local/bin/ignition/data/projects/.resources"
-    local_3d_html = IGN_DIR / "vision_aoi_cell.html"
-
-    subprocess.run(["docker", "exec", container_name, "mkdir", "-p", target_dir, resources_store], check=True, capture_output=True)
-    subprocess.run(["docker", "cp", str(local_view_file), f"{container_name}:{target_dir}/view.json"], check=True, capture_output=True)
-    subprocess.run(["docker", "cp", str(local_res_file), f"{container_name}:{target_dir}/resource.json"], check=True, capture_output=True)
-    subprocess.run(["docker", "cp", str(local_view_file), f"{container_name}:{resources_store}/{sig}"], check=True, capture_output=True)
+    # Deploy to both DigitalTwin and VisionSCADA_AI_Twin projects
+    _deploy_to_single_project(container_name, "DigitalTwin", local_view_file, local_res_file, sig, set_as_root_page=False)
+    _deploy_to_single_project(container_name, "VisionSCADA_AI_Twin", local_view_file, local_res_file, sig, set_as_root_page=True)
 
     # Copy 3D WebGL cell HTML into Ignition's internal webserver (:8089)
+    local_3d_html = IGN_DIR / "vision_aoi_cell.html"
     subprocess.run(
         ["docker", "cp", str(local_3d_html), f"{container_name}:/usr/local/bin/ignition/webserver/webapps/main/vision_aoi_cell.html"],
         check=True,
         capture_output=True,
     )
-
-    # Register `/vision-aoi` route in Perspective page-config/config.json
-    page_cfg_dir = f"/usr/local/bin/ignition/data/projects/{project_name}/com.inductiveautomation.perspective/page-config"
-    page_cfg_path = f"{page_cfg_dir}/config.json"
-    res = subprocess.run(["docker", "exec", container_name, "cat", page_cfg_path], check=True, capture_output=True, text=True)
-    page_cfg = json.loads(res.stdout)
-    pages = page_cfg.setdefault("pages", {})
-    pages["/vision-aoi"] = {"title": "VisionSCADA AI Twin - Celda AOI & MLOps", "viewPath": VIEW_NAME}
-
-    cfg_bytes = json.dumps(page_cfg, indent=2).encode("utf-8")
-    cfg_sig = hashlib.sha256(cfg_bytes).hexdigest()
-    local_page_cfg = IGN_DIR / "page_config.json"
-    local_page_cfg.write_bytes(cfg_bytes)
-    local_page_res = IGN_DIR / "page_resource.json"
-    local_page_res.write_bytes(
-        json.dumps(
-            {
-                "scope": "G",
-                "version": 1,
-                "restricted": False,
-                "overridable": True,
-                "files": ["config.json"],
-                "attributes": {
-                    "lastModificationSignature": cfg_sig,
-                    "lastModification": {
-                        "actor": "admin",
-                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    },
-                },
-            },
-            indent=2,
-        ).encode("utf-8")
-    )
-
-    subprocess.run(["docker", "cp", str(local_page_cfg), f"{container_name}:{page_cfg_path}"], check=True, capture_output=True)
-    subprocess.run(["docker", "cp", str(local_page_res), f"{container_name}:{page_cfg_dir}/resource.json"], check=True, capture_output=True)
-    subprocess.run(["docker", "cp", str(local_page_cfg), f"{container_name}:{resources_store}/{cfg_sig}"], check=True, capture_output=True)
     subprocess.run(
         ["docker", "exec", "-u", "0", container_name, "chown", "-R", "ignition:ignition", "/usr/local/bin/ignition/data/projects"],
         check=True,
@@ -1073,7 +1096,11 @@ def deploy_to_ignition_container(container_name: str = "twin-ignition", project_
 
     return {
         "ok": True,
-        "perspective_url": f"http://localhost:8089/data/perspective/client/{project_name}/vision-aoi",
+        "perspective_urls": [
+            "http://localhost:8089/data/perspective/client/VisionSCADA_AI_Twin",
+            "http://localhost:8089/data/perspective/client/VisionSCADA_AI_Twin/vision-aoi",
+            "http://localhost:8089/data/perspective/client/DigitalTwin/vision-aoi",
+        ],
         "designer_view": f"Perspective -> Views -> {VIEW_NAME}",
         "tags_export": str(tags_file),
     }

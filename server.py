@@ -856,6 +856,13 @@ def serve_main_scada():
 
 @app.get("/cell3d", response_class=HTMLResponse)
 def serve_cell3d_viewer():
+    # Realistic PBR scene (three.js r170 vendored under static/vendor, works offline)
+    cell_file = STATIC_DIR / "cell3d_v2.html"
+    return FileResponse(cell_file)
+
+
+@app.get("/cell3d/legacy", response_class=HTMLResponse)
+def serve_cell3d_legacy_viewer():
     cell_file = STATIC_DIR / "cell3d.html"
     return FileResponse(cell_file)
 

@@ -1,0 +1,35 @@
+{
+  "pages": {
+    "/": {
+      "title": "VisionSCADA AI Twin - Celda AOI & MLOps",
+      "viewPath": "Celda_Vision_AOI_MLOps"
+    },
+    "/abb-robot": {
+      "viewPath": "ABB_Robot_6Ejes_Control"
+    },
+    "/brewscada": {
+      "viewPath": "BrewSCADA_4_Opciones"
+    },
+    "/guia": {
+      "viewPath": "Arquitectura_Guia"
+    },
+    "/laboratorio-catalogo": {
+      "viewPath": "Laboratorio_Animaciones_Catalogo"
+    },
+    "/planta-realista": {
+      "viewPath": "Planta_2D_3D_Realista"
+    },
+    "/threejs-robots": {
+      "viewPath": "ThreeJS_Robots_Oficiales"
+    },
+    "/paletizado-abb": {
+      "viewPath": "Celda_Paletizado_TeachPendant"
+    },
+    "/vision-aoi": {
+      "viewPath": "Celda_Vision_AOI_MLOps"
+    }
+  },
+  "sharedDocks": {
+    "cornerPriority": "top-bottom"
+  }
+}
