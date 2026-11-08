@@ -46,15 +46,15 @@ PLC_WRITABLE_TAGS = {
     ("UDT_MaterialHandling", "Clear_OK_Bin_Cmd"): bool,
 }
 
-# Belt stations (mm from the infeed end of the conveyor)
+# Belt stations in real mm from the robot drop point (same geometry as the 3D cell)
 INFEED_POS_MM = 0.0        # 6-axis robot drops parts here
-CAMERA_POS_MM = 300.0      # vision trigger (photo-eye + camera)
-PUSHER_POS_MM = 1100.0     # pneumatic reject pusher
-OUTFEED_POS_MM = 1450.0    # parts leave the belt into the OK tote
+CAMERA_POS_MM = 1300.0     # vision trigger (camera tunnel)
+PUSHER_POS_MM = 4750.0     # pneumatic reject pusher
+OUTFEED_POS_MM = 6350.0    # parts leave the belt into the OK tote
 
 # Photo-eyes (mm on the belt) and the part footprint that blocks a beam
-PE_PUSHER_POS_MM = 980.0      # confirms the part arrives before the pusher fires
-PE_OK_POS_MM = 1400.0         # outfeed end: counts parts dropping into the OK tote
+PE_PUSHER_POS_MM = PUSHER_POS_MM - 120.0   # confirms the part arrives before the pusher fires
+PE_OK_POS_MM = OUTFEED_POS_MM - 100.0      # outfeed end: counts parts dropping into the OK tote
 PE_BLOCK_HALF_MM = 75.0
 CHUTE_TRAVEL_S = 0.35         # pusher -> reject tote entry photo-eye
 
@@ -67,8 +67,8 @@ INFEED_CALL_AHEAD = 8
 class SoftPLCController:
     """
     Deterministic Soft-PLC executing a 100 ms scan cycle:
-    - A 6-axis infeed robot places each part on the belt at 0 mm; the camera fires when it crosses 300 mm.
-    - Tracks parts along the conveyor from the robot drop (0 mm) past the Reject Pusher (1100 mm) to the outfeed (1450 mm).
+    - A 6-axis infeed robot places each part on the belt at 0 mm; the camera fires when it crosses CAMERA_POS_MM.
+    - Tracks parts along the conveyor from the robot drop (0 mm) past the reject pusher to the outfeed (see *_POS_MM).
     - An AGV swaps the infeed tote (call-ahead) and the full reject / OK totes (line interlocked while full).
     - Enforces Edge inference watchdog (< 350 ms); trips Fail-Safe Reject if Edge times out.
     - Computes real-time OEE (Availability x Performance x Quality) and SPC p-Chart state.
@@ -92,7 +92,7 @@ class SoftPLCController:
         self.chute_arrivals: List[float] = []
         self.reject_pe_off_at = 0.0
 
-        # FIFO Tracking Queue of parts on the belt, from the robot drop (0 mm) to the outfeed (1450 mm)
+        # FIFO Tracking Queue of parts on the belt, from the robot drop (0 mm) to OUTFEED_POS_MM
         self.fifo_queue: List[Dict[str, Any]] = []
 
         # Active Demo Scenario Flags
@@ -293,7 +293,7 @@ class SoftPLCController:
         """Writes the vision verdict into the FIFO slot of the part that is at the camera.
 
         Called from the camera-trigger callback. If no part is being tracked at the camera
-        (e.g. the callback is used outside the scan), the part is enqueued at 300 mm as before.
+        (e.g. the callback is used outside the scan), the part is enqueued at the camera position.
         """
         item = self.camera_item
         if item is None:
@@ -480,7 +480,7 @@ class SoftPLCController:
             belt_mm_s = sp_ppm * 18.0
             conv["Belt_Speed_mm_s"] = round(belt_mm_s, 1)
             conv["Encoder_mm"] = round((conv["Encoder_mm"] + belt_mm_s * dt) % 100000.0, 1)
-            travel_ms = round((800.0 / max(belt_mm_s, 1.0)) * 1000.0, 1)
+            travel_ms = round(((PUSHER_POS_MM - CAMERA_POS_MM) / max(belt_mm_s, 1.0)) * 1000.0, 1)
             rej["Travel_Window_ms"] = travel_ms
         else:
             conv["Actual_PPM"] = 0.0
@@ -499,7 +499,7 @@ class SoftPLCController:
         self._step_agv(dt, running)
         self._step_robot(dt, running and on_camera_trigger_cb is not None, effective_interval)
 
-        # 3. Advance parts in FIFO queue along conveyor; camera fires as a part crosses 300 mm
+        # 3. Advance parts in FIFO queue along conveyor; camera fires as a part crosses CAMERA_POS_MM
         triggered_inspection = None
         remaining_fifo = []
         for item in list(self.fifo_queue):
