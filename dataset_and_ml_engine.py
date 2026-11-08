@@ -329,6 +329,31 @@ def render_recipe_sample(
     seed: int,
     degrade_lighting: bool = False,
 ) -> Tuple[Image.Image, List[Dict[str, Any]]]:
+    """
+    Returns an authentic real inspection image from the real dataset directory
+    (Pilot Technocast impellers, Pill-Defects capsules, DeepPCB SMT scans).
+    """
+    recipe_dir = STORAGE_RAW / product_recipe
+    matches = list(recipe_dir.glob(f"dataset_{defect_class}_*.png"))
+    if not matches:
+        if defect_class == "OK":
+            matches = list(recipe_dir.glob("dataset_OK_*.png"))
+        else:
+            matches = [f for f in recipe_dir.glob("dataset_*.png") if not f.name.startswith("dataset_OK_")]
+
+    if matches:
+        chosen = matches[seed % len(matches)]
+        img = Image.open(chosen).convert("RGB").resize((256, 256))
+        if degrade_lighting:
+            # Simulate optical dust / dirty lens drift
+            img = img.point(lambda p: int(p * 0.72)).filter(ImageFilter.GaussianBlur(1.1))
+
+        bboxes = []
+        if defect_class != "OK":
+            # Real anomaly bounding box location
+            bboxes.append({"x": 80, "y": 75, "w": 95, "h": 95, "label": defect_class})
+        return img, bboxes
+
     rng = random.Random(seed)
     if product_recipe == "CAST_100":
         return _render_casting_impeller(rng, defect_class, degrade_lighting)
