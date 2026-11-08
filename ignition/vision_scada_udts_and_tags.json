@@ -529,6 +529,24 @@
           "value": 0
         },
         {
+          "name": "Pending_Recipe",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "String",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_ProductionBatch.Pending_Recipe",
+          "value": ""
+        },
+        {
+          "name": "Changeover_Active",
+          "tagType": "AtomicTag",
+          "valueSource": "opc",
+          "dataType": "Boolean",
+          "opcServer": "BrewSCADA_OPCUA",
+          "opcItemPath": "ns=2;s=BrewSCADA.UDT_ProductionBatch.Changeover_Active",
+          "value": false
+        },
+        {
           "name": "Batch_Code",
           "tagType": "AtomicTag",
           "valueSource": "opc",

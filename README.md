@@ -38,10 +38,14 @@ flowchart LR
    - The **Edge Model (`v1.0.0`)** classifies parts in **`~12–18 ms`** well inside the physical travel window (`~6.4 s` at 30 PPM) between the camera (`1300 mm`) and pneumatic reject cylinder (`4750 mm`).
    - If Edge inference exceeds `350 ms`, the **Soft-PLC Watchdog** triggers a fail-safe reject (`REJECT_WATCHDOG`) and raises a `CRITICAL` ISA-18.2 alarm.
    - Suspect or defective frames are queued asynchronously to the **Cloud Vision Auditor (`~850 ms`)** with full **Store-and-Forward buffering** if internet connectivity drops.
-2. **Multi-Recipe Selector (3 Datasets = 3 Dynamic 3D Meshes + 6 Trained Models)**:
+2. **Multi-Recipe Selector (6 Datasets = 6 Dynamic 3D Meshes, one button per recipe in Perspective)**:
    - `CAST_100`: Pilot Technocast cast-iron impellers (`OK`, `Casting_Defect`). The public dataset is only good/defective.
    - `PACK_200`: PerceptiLabs Pill-Defects (`OK`, `Pill_Defect`). The public dataset is only normal/defect.
    - `PCB_300`: DeepPCB patches with real annotated defect types (`OK`, `Open`, `Short`, `Mousebite`, `Spur`, `Copper`, `Pin_Hole`).
+   - `CAPS_400`: VisA "capsules" (Amazon, CC BY 4.0) in a blister tray (`OK`, `Capsule_Defect`), boxes from the pixel masks.
+   - `STEEL_600`: NEU-DET hot-rolled steel strip (`OK`, `Crazing`, `Inclusion`, `Patches`, `Pitted_Surface`, `Rolled_In_Scale`, `Scratches`). NEU has no defect-free images, so `OK` samples are crops taken outside every annotated box. Upstream license is not stated.
+   - `SCREW_700`: MVTec AD "screw" (CC BY-NC-SA 4.0, **non-commercial only**) (`OK`, `Manipulated_Front`, `Scratch_Head`, `Scratch_Neck`, `Thread_Side`, `Thread_Top`).
+   - Changing recipe is a real format change: the robot stops feeding, the belt empties, then the PLC switches recipe and loads a fresh infeed tote (`Pending_Recipe`, `Changeover_Active`).
 3. **4 Ignition SCADA UDTs (`ignition/vision_scada_udts_and_tags.json`)**:
    - `UDT_ConveyorAxis`, `UDT_VisionCamera`, `UDT_RejectActuator`, `UDT_ProductionBatch`.
 4. **SPC Carta $p$ + Western Electric Rules & ISA-18.2 Alarm Pipeline**:

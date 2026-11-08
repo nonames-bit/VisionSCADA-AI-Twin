@@ -11,6 +11,18 @@ Downloads the FULL public industrial inspection datasets into storage/datasets/
                    Open / Short / Mousebite / Spur / Copper / Pin_Hole, plus OK patches
                    cropped from the defect-free template at the same position.
 
+  4. CAPS_400  VisA "capsules" (Amazon, CC BY 4.0)      ~600 normal + 100 anomaly
+               ->  labels OK / Capsule_Defect, boxes taken from the pixel masks
+  5. STEEL_600 NEU-DET hot-rolled steel strip            1,797 images, 6 real defect types
+               ->  Crazing / Inclusion / Patches / Pitted_Surface / Rolled_In_Scale / Scratches
+                   with the VOC boxes; OK = crops taken OUTSIDE every annotated box
+                   (NEU ships no defect-free images). Upstream license: none stated.
+  6. SCREW_700 MVTec AD "screw" (CC BY-NC-SA 4.0, non-commercial only)
+               ->  OK + Manipulated_Front / Scratch_Head / Scratch_Neck / Thread_Side / Thread_Top,
+                   boxes from the ground-truth masks.
+  4-6 come from Hugging Face mirrors (imaadd05/visa-anomaly-detection,
+  KeenForgeAI/NEU-DET-corrected, foersben/mvtec-ad).
+
 The two first datasets only say good vs defective, so they are stored as binary labels
 (the previous script invented sub-types with idx % 3).
 
@@ -45,6 +57,15 @@ CAST_REPO = "Mahdi-Kriaa/Casting_Defect_Detection"
 CAST_BRANCH = "main"
 PILL_RAW = "https://raw.githubusercontent.com/PerceptiLabs/Pill-Defects/main"
 PCB_RAW = "https://raw.githubusercontent.com/tangsanli5201/DeepPCB/master/PCBData"
+HF_BASE = "https://huggingface.co"
+VISA_REPO = "imaadd05/visa-anomaly-detection"
+NEU_REPO = "KeenForgeAI/NEU-DET-corrected"
+MVTEC_REPO = "foersben/mvtec-ad"
+NEU_TYPES = {"crazing": "Crazing", "inclusion": "Inclusion", "patches": "Patches",
+             "pitted_surface": "Pitted_Surface", "rolled-in_scale": "Rolled_In_Scale", "scratches": "Scratches"}
+MVTEC_SCREW_TYPES = {"manipulated_front": "Manipulated_Front", "scratch_head": "Scratch_Head",
+                     "scratch_neck": "Scratch_Neck", "thread_side": "Thread_Side", "thread_top": "Thread_Top"}
+NEU_OK_WINDOW = 64  # px crop of the 200x200 NEU image that touches no annotated box
 PCB_WINDOW = 160  # px of the 640x640 DeepPCB scan around each defect -> resized to 256
 
 
@@ -237,9 +258,161 @@ def pcb_jobs(limit: Optional[int], per_image: int) -> List[Tuple[str, callable]]
     return [(img, job(img, ann)) for img, ann in pairs]
 
 
+# ------------------------------------------------------------------------- Hugging Face helpers
+def hf_raw(repo: str, path: str) -> str:
+    return f"{HF_BASE}/datasets/{repo}/resolve/main/{urllib.request.quote(path)}"
+
+
+def hf_list(repo: str, path: str) -> List[str]:
+    """Lists every file under `path` in a HF dataset repo (follows the API's Link pagination)."""
+    url: Optional[str] = f"{HF_BASE}/api/datasets/{repo}/tree/main/{urllib.request.quote(path)}?recursive=true"
+    out: List[str] = []
+    while url:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
+            out += [e["path"] for e in json.loads(r.read()) if e.get("type") == "file"]
+            link = r.headers.get("Link") or ""
+        url = None
+        for part in link.split(","):
+            if 'rel="next"' in part:
+                url = part[part.find("<") + 1:part.find(">")]
+    return out
+
+
+def mask_bbox(mask_bytes: bytes, size: Tuple[int, int], label: str, out_size: int = 256) -> List[Dict[str, int]]:
+    """Bounding box (in the 256x256 normalised frame) of the non-zero pixels of a defect mask."""
+    m = Image.open(io.BytesIO(mask_bytes)).convert("L").point(lambda v: 255 if v > 0 else 0)
+    bb = m.getbbox()
+    if not bb:
+        return []
+    sx, sy = out_size / size[0], out_size / size[1]
+    x1, y1, x2, y2 = bb
+    return [{"x": int(x1 * sx), "y": int(y1 * sy), "w": max(1, int((x2 - x1) * sx)), "h": max(1, int((y2 - y1) * sy)), "label": label}]
+
+
+# ------------------------------------------------------------------------- CAPS_400 (VisA capsules)
+def visa_jobs(limit: Optional[int]) -> List[Tuple[str, callable]]:
+    rows = list(csv.DictReader(io.StringIO(fetch(hf_raw(VISA_REPO, "capsules/image_anno.csv")).decode("utf-8-sig"))))
+    ok = [r for r in rows if r.get("label") == "normal"]
+    bad = [r for r in rows if r.get("label") == "anomaly"]
+    if limit:
+        ok, bad = ok[:limit], bad[:limit]
+
+    def job(row: Dict[str, str], label: str):
+        def run() -> int:
+            img = Image.open(io.BytesIO(fetch(hf_raw(VISA_REPO, row["image"])))).convert("RGB")
+            boxes = None
+            if label != "OK" and row.get("mask"):
+                boxes = mask_bbox(fetch(hf_raw(VISA_REPO, row["mask"])), img.size, label) or None
+            _, created = datasets.add_image("CAPS_400", label, img, source="visa", bboxes=boxes)
+            return int(created)
+        return run
+
+    return [(r["image"], job(r, "OK")) for r in ok] + [(r["image"], job(r, "Capsule_Defect")) for r in bad]
+
+
+# ------------------------------------------------------------------------- STEEL_600 (NEU-DET)
+def parse_voc(xml_text: str) -> List[Tuple[int, int, int, int, str]]:
+    import xml.etree.ElementTree as ET
+    out = []
+    for obj in ET.fromstring(xml_text).iter("object"):
+        name = (obj.findtext("name") or "").strip()
+        bb = obj.find("bndbox")
+        if bb is None or name not in NEU_TYPES:
+            continue
+        out.append((int(float(bb.findtext("xmin"))), int(float(bb.findtext("ymin"))),
+                    int(float(bb.findtext("xmax"))), int(float(bb.findtext("ymax"))), name))
+    return out
+
+
+def neu_ok_window(boxes: List[Tuple[int, int, int, int, str]], size: Tuple[int, int],
+                  window: int = NEU_OK_WINDOW, step: int = 8) -> Optional[Tuple[int, int, int, int]]:
+    """First window of `window` px that overlaps no annotated defect (with a 4 px margin)."""
+    W, H = size
+    for top in range(0, H - window + 1, step):
+        for left in range(0, W - window + 1, step):
+            r = (left - 4, top - 4, left + window + 4, top + window + 4)
+            if all(r[2] <= x1 or r[0] >= x2 or r[3] <= y1 or r[1] >= y2 for x1, y1, x2, y2, _ in boxes):
+                return (left, top, left + window, top + window)
+    return None
+
+
+def neu_jobs(limit: Optional[int]) -> List[Tuple[str, callable]]:
+    names: List[Tuple[str, str]] = []
+    for split in ("train", "val", "test"):
+        for n in fetch(hf_raw(NEU_REPO, f"ImageSets/{split}.txt")).decode("utf-8").split():
+            names.append((split, n))
+    if limit:
+        per: Dict[str, int] = {}
+        kept = []
+        for split, n in names:
+            t = n.rsplit("_", 1)[0]
+            if per.get(t, 0) < limit:
+                per[t] = per.get(t, 0) + 1
+                kept.append((split, n))
+        names = kept
+
+    def job(split: str, name: str):
+        def run() -> int:
+            img = Image.open(io.BytesIO(fetch(hf_raw(NEU_REPO, f"images/{split}/{name}.jpg")))).convert("RGB")
+            boxes = parse_voc(fetch(hf_raw(NEU_REPO, f"annotations/{name}.xml")).decode("utf-8", "ignore"))
+            if not boxes:
+                return 0
+            label = NEU_TYPES[boxes[0][4]]
+            sx, sy = 256 / img.size[0], 256 / img.size[1]
+            bbs = [{"x": int(x1 * sx), "y": int(y1 * sy), "w": int((x2 - x1) * sx), "h": int((y2 - y1) * sy), "label": NEU_TYPES[t]}
+                   for x1, y1, x2, y2, t in boxes]
+            _, created = datasets.add_image("STEEL_600", label, img, source="neu", bboxes=bbs)
+            made = int(created)
+            win = neu_ok_window(boxes, img.size)
+            if win:
+                _, ok_created = datasets.add_image("STEEL_600", "OK", img.crop(win).resize((256, 256)), source="neu")
+                made += int(ok_created)
+            return made
+        return run
+
+    return [(f"{s}/{n}", job(s, n)) for s, n in names]
+
+
+# ------------------------------------------------------------------------- SCREW_700 (MVTec AD screw)
+def mvtec_screw_jobs(limit: Optional[int]) -> List[Tuple[str, callable]]:
+    files = [p for p in hf_list(MVTEC_REPO, "screw") if p.endswith(".png")]
+    good = sorted(p for p in files if "/good/" in p)
+    bad = sorted(p for p in files if "/test/" in p and "/good/" not in p)
+    if limit:
+        good = good[:limit]
+        per: Dict[str, int] = {}
+        kept = []
+        for p in bad:
+            t = p.split("/")[2]
+            if per.get(t, 0) < limit:
+                per[t] = per.get(t, 0) + 1
+                kept.append(p)
+        bad = kept
+
+    def job(path: str):
+        def run() -> int:
+            img = Image.open(io.BytesIO(fetch(hf_raw(MVTEC_REPO, path)))).convert("RGB")
+            dtype = path.split("/")[2]
+            if dtype == "good":
+                _, created = datasets.add_image("SCREW_700", "OK", img, source="mvtec")
+                return int(created)
+            label = MVTEC_SCREW_TYPES[dtype]
+            stem = path.rsplit("/", 1)[1][:-4]
+            boxes = None
+            try:
+                boxes = mask_bbox(fetch(hf_raw(MVTEC_REPO, f"screw/ground_truth/{dtype}/{stem}_mask.png")), img.size, label) or None
+            except Exception:
+                pass
+            _, created = datasets.add_image("SCREW_700", label, img, source="mvtec", bboxes=boxes)
+            return int(created)
+        return run
+
+    return [(p, job(p)) for p in good + bad if p.split("/")[2] == "good" or p.split("/")[2] in MVTEC_SCREW_TYPES]
+
+
 def main(argv: Optional[List[str]] = None) -> Dict[str, Dict[str, int]]:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--only", choices=["CAST_100", "PACK_200", "PCB_300"], action="append")
+    ap.add_argument("--only", choices=list(RECIPES), action="append")
     ap.add_argument("--limit", type=int, default=None, help="máximo de archivos por clase/fuente (pruebas)")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--pcb-per-image", type=int, default=3)
@@ -247,13 +420,16 @@ def main(argv: Optional[List[str]] = None) -> Dict[str, Dict[str, int]]:
     args = ap.parse_args(argv)
 
     datasets.ensure_layout()
-    which = args.only or ["CAST_100", "PACK_200", "PCB_300"]
+    which = args.only or list(RECIPES)
     print(f"=== Descargando datasets completos en {DATASET_ROOT} ===")
     report: Dict[str, Dict[str, int]] = {}
     builders = {
         "CAST_100": lambda: casting_jobs(args.limit),
         "PACK_200": lambda: pill_jobs(args.limit),
         "PCB_300": lambda: pcb_jobs(args.limit, args.pcb_per_image),
+        "CAPS_400": lambda: visa_jobs(args.limit),
+        "STEEL_600": lambda: neu_jobs(args.limit),
+        "SCREW_700": lambda: mvtec_screw_jobs(args.limit),
     }
     for recipe in which:
         print(f"\n[{recipe}]")

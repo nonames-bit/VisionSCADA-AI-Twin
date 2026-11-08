@@ -1443,9 +1443,79 @@
       return g;
     }
 
-    const PART_BUILDERS = { CAST_100: buildImpeller, PACK_200: buildVial, PCB_300: buildPCB };
+    // VisA "capsules": blister tray with 2x3 two-tone gel capsules
+    function buildCapsuleTray() {
+      const g = new THREE.Group();
+      const TW = 0.24, TD = 0.17;
+      const trayMat = new THREE.MeshPhysicalMaterial({ color: 0xdfe6ea, roughness: 0.25, transmission: 0.55, thickness: 0.01, transparent: true, opacity: 0.9 });
+      const foil = new THREE.MeshStandardMaterial({ color: 0xc9ced3, metalness: 1, roughness: 0.32 });
+      const capA = new THREE.MeshPhysicalMaterial({ color: 0x0f7a3a, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08 });
+      const capB = new THREE.MeshPhysicalMaterial({ color: 0xd8463a, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.08 });
+      const base = box(TW, 0.004, TD, foil, 0.002); base.position.y = 0.002; g.add(base);
+      const half = new THREE.CapsuleGeometry(0.016, 0.034, 6, 20);
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
+        const x = (i - 1) * 0.075, z = (j - 0.5) * 0.08;
+        const pocket = new THREE.Mesh(new THREE.CapsuleGeometry(0.021, 0.04, 6, 20), trayMat);
+        pocket.rotation.z = Math.PI / 2; pocket.scale.set(1, 1, 0.8); pocket.position.set(x, 0.02, z);
+        g.add(pocket);
+        // two-tone capsule: clip each half with a local plane via two meshes offset along the axis
+        const a = new THREE.Mesh(half, capA), b = new THREE.Mesh(half, capB);
+        [a, b].forEach((m, k) => { m.rotation.z = Math.PI / 2; m.scale.set(1, 0.55, 1); m.position.set(x + (k ? 0.017 : -0.017), 0.02, z); g.add(m); });
+      }
+      return g;
+    }
+
+    // NEU-DET: hot-rolled steel strip coupon with mill-scale texture
+    let steelMapsCache = null;
+    function buildSteelCoupon() {
+      if (!steelMapsCache) {
+        const W = 512, H = 384;
+        const draw = (mode) => (ctx) => {
+          let s = 11; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+          ctx.fillStyle = mode === 'color' ? '#5d6166' : '#8a8a8a'; ctx.fillRect(0, 0, W, H);
+          for (let i = 0; i < 2600; i++) {
+            const v = mode === 'color' ? 70 + rnd() * 60 : 110 + rnd() * 90;
+            ctx.fillStyle = mode === 'color' ? `rgb(${v},${v + 3},${v + 8})` : `rgb(${v},${v},${v})`;
+            ctx.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 26, 1 + rnd() * 2);   // rolling-direction streaks
+          }
+          ctx.fillStyle = mode === 'color' ? '#e8e8e2' : '#606060';
+          ctx.font = 'bold 15px monospace'; ctx.fillText('HR-STRIP Q235 · HEAT 26-0418', 14, H - 14);
+        };
+        steelMapsCache = { map: canvasTex(W, H, draw('color'), true), roughnessMap: canvasTex(W, H, draw('rough'), false) };
+      }
+      const g = new THREE.Group();
+      const top = new THREE.MeshStandardMaterial({ map: steelMapsCache.map, roughnessMap: steelMapsCache.roughnessMap, metalness: 0.85, roughness: 1 });
+      const edge = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 1, roughness: 0.35 });
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.012, 0.19), [edge, edge, top, edge, edge, edge]);
+      plate.position.y = 0.006; g.add(plate);
+      return g;
+    }
+
+    // MVTec AD "screw": hex-socket screw lying in a machined V-nest puck
+    function buildScrewNest() {
+      const g = new THREE.Group();
+      const V2 = (x, y) => new THREE.Vector2(x, y);
+      const puck = new THREE.Mesh(new THREE.LatheGeometry([V2(0, 0), V2(0.105, 0), V2(0.11, 0.004), V2(0.11, 0.026), V2(0.106, 0.03), V2(0, 0.03)], 48), new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.55 }));
+      g.add(puck);
+      const steel = new THREE.MeshStandardMaterial({ color: 0xb9bec4, metalness: 1, roughness: 0.28 });
+      const screw = new THREE.Group();
+      const head = new THREE.Mesh(new THREE.LatheGeometry([V2(0, 0), V2(0.018, 0), V2(0.02, 0.003), V2(0.02, 0.016), V2(0.017, 0.019), V2(0, 0.019)], 32), steel);
+      const sock = cyl(0.008, 0.008, 0.004, M.plasticBlack || steel, 6); sock.position.y = 0.0185;
+      head.add(sock);
+      const pts = [V2(0, 0)];
+      for (let i = 0; i <= 44; i++) { const y = -i * 0.0028; pts.push(V2(i % 2 ? 0.0105 : 0.0085, y)); }
+      pts.push(V2(0.004, -0.128), V2(0, -0.13));
+      const shank = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), steel);
+      screw.add(head, shank);
+      screw.rotation.z = Math.PI / 2;
+      screw.position.set(-0.06, 0.042, 0);
+      g.add(screw);
+      return g;
+    }
+
+    const PART_BUILDERS = { CAST_100: buildImpeller, PACK_200: buildVial, PCB_300: buildPCB, CAPS_400: buildCapsuleTray, STEEL_600: buildSteelCoupon, SCREW_700: buildScrewNest };
     const RECIPE_ALIAS = { PCB_500: 'PCB_300' };
-    const PART_RADIUS = { CAST_100: 0.2, PACK_200: 0.11, PCB_300: 0.27 };
+    const PART_RADIUS = { CAST_100: 0.2, PACK_200: 0.11, PCB_300: 0.27, CAPS_400: 0.15, STEEL_600: 0.16, SCREW_700: 0.11 };
     const partTemplates = {};
     const partModels = {};   // GLB overrides
 
@@ -1832,6 +1902,7 @@
     // Live state from the Soft-PLC (/api/state)
     // =====================================================================
     let liveState = null;
+    let lastChangeover = '';
     let pollTime = performance.now();
     let lastKnownSerial = '';
     let flash = 0;
@@ -1848,7 +1919,17 @@
         const batch = liveState.udts.UDT_ProductionBatch;
         const rej = liveState.udts.UDT_RejectActuator || {};
 
-        document.getElementById('hudRecipe').textContent = batch.Active_Recipe;
+        const hr = document.getElementById('hudRecipe');
+        if (batch.Changeover_Active) {
+          hr.textContent = batch.Active_Recipe + ' → ' + batch.Pending_Recipe;
+          hr.className = 'hud-badge nok';
+          if (lastChangeover !== batch.Pending_Recipe) toast('Cambio de formato a ' + batch.Pending_Recipe + ': el robot deja de alimentar y la banda se vacía');
+        } else {
+          hr.textContent = batch.Active_Recipe;
+          hr.className = 'hud-badge ok';
+          if (lastChangeover) toast('Formato ' + batch.Active_Recipe + ' listo: tote de entrada nuevo');
+        }
+        lastChangeover = batch.Changeover_Active ? batch.Pending_Recipe : '';
         document.getElementById('hudEncoder').textContent = conv.Encoder_mm.toFixed(0);
         document.getElementById('hudSpeed').textContent = conv.Actual_PPM.toFixed(0);
         document.getElementById('hudFifo').textContent = conv.FIFO_Queue_Depth;
@@ -2483,6 +2564,152 @@
       parts: () => [...beltParts.values()].map(p => ({ x: +p.mesh.position.x.toFixed(3), z: +p.mesh.position.z.toFixed(3), mode: p.mode, action: p.action || '' })),
       pusher: () => ({ ext: +pusherExt.toFixed(2), plateZ: +plateFaceZ.toFixed(3) }),
       stats: () => ({ ...simStats }) };
+  </script>
+  <!-- ==================== MLOps panel: label frames, upload images, retrain, promote ==================== -->
+  <style>
+    #mlopsToggle { position: fixed; right: 16px; bottom: 64px; z-index: 30; }
+    #mlopsPanel {
+      position: fixed; right: 16px; bottom: 104px; z-index: 30; width: 340px; max-height: calc(100vh - 140px);
+      overflow: auto; display: none; background: rgba(15, 23, 42, 0.94); border: 1px solid #1e293b;
+      border-left: 4px solid #a78bfa; border-radius: 10px; padding: 12px; color: #e2e8f0;
+      font: 12px 'Segoe UI', Inter, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    #mlopsPanel.open { display: block; }
+    #mlopsPanel h4 { margin: 0 0 6px; font-size: 13px; color: #c4b5fd; }
+    #mlopsPanel .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+    #mlopsPanel .kpi { flex: 1 1 45%; background: #0b1220; border: 1px solid #1e293b; border-radius: 6px; padding: 5px 7px; }
+    #mlopsPanel .kpi b { display: block; font-size: 13px; color: #f8fafc; }
+    #mlopsPanel .kpi span { color: #94a3b8; font-size: 10px; }
+    #mlopsPanel select, #mlopsPanel input[type=file] { background: #0b1220; color: #e2e8f0; border: 1px solid #334155; border-radius: 5px; padding: 4px; font-size: 11px; max-width: 100%; }
+    #mlopsPanel button { background: #312e81; color: #fff; border: 1px solid #6366f1; border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 11px; }
+    #mlopsPanel button:hover { background: #4338ca; }
+    #mlopsPanel button.warn { background: #78350f; border-color: #f59e0b; }
+    #mlopsPanel img { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid #334155; background: #000; }
+    #mlopsPanel .msg { color: #a5b4fc; font-size: 11px; min-height: 14px; white-space: pre-wrap; }
+    #mlopsPanel .muted { color: #64748b; font-size: 10px; }
+  </style>
+  <button id="mlopsToggle" class="hud-btn" type="button" title="Tecla M">🧠 MLOps</button>
+  <div id="mlopsPanel" aria-label="MLOps">
+    <h4>🧠 MLOps · reentrenar desde el gemelo</h4>
+    <div class="row">
+      <div class="kpi"><span>PRODUCCIÓN</span><b id="mlChamp">--</b></div>
+      <div class="kpi"><span>SHADOW</span><b id="mlChall">--</b></div>
+      <div class="kpi"><span>DATASET</span><b id="mlData">--</b></div>
+      <div class="kpi"><span>DRIFT PSI</span><b id="mlPsi">--</b></div>
+    </div>
+    <div class="row">
+      <label class="muted">Rol</label>
+      <select id="mlRole">
+        <option value="ML_Engineer">ML_Engineer</option>
+        <option value="Quality_Engineer">Quality_Engineer (solo etiquetar)</option>
+      </select>
+    </div>
+    <h4>1 · Etiquetar la última pieza</h4>
+    <div class="row">
+      <img id="mlFrame" alt="último frame">
+      <div style="flex:1">
+        <div id="mlFrameInfo" class="muted">--</div>
+        <select id="mlFrameLabel" style="margin-top:6px;width:100%"></select>
+        <button id="mlAddFrame" type="button" style="margin-top:6px;width:100%">➕ Agregar al dataset</button>
+      </div>
+    </div>
+    <h4>2 · Subir imágenes nuevas</h4>
+    <div class="row">
+      <input id="mlFiles" type="file" accept="image/*" multiple>
+      <select id="mlUploadLabel"></select>
+      <button id="mlUpload" type="button">⬆️ Subir</button>
+    </div>
+    <h4>3 · Entrenar y desplegar</h4>
+    <div class="row">
+      <button id="mlRetrain" type="button">🔁 Reentrenar (→ SHADOW)</button>
+      <button id="mlPromote" class="warn" type="button">🚀 Promover SHADOW</button>
+    </div>
+    <div id="mlJob" class="msg"></div>
+    <div id="mlMsg" class="msg"></div>
+    <div class="muted" id="mlLinks"></div>
+  </div>
+  <script>
+  (function () {
+    const API = (location.port === '8020') ? '' : 'http://' + (location.hostname || '127.0.0.1') + ':8020';
+    const $ = id => document.getElementById(id);
+    const panel = $('mlopsPanel');
+    let last = null, classesKey = '';
+    const toggle = () => { panel.classList.toggle('open'); if (panel.classList.contains('open')) refresh(); };
+    $('mlopsToggle').addEventListener('click', toggle);
+    window.addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) toggle(); });
+    const say = (t, err) => { $('mlMsg').textContent = t; $('mlMsg').style.color = err ? '#fca5a5' : '#a5b4fc'; };
+    async function call(path, body) {
+      const r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      return j;
+    }
+    const user = () => ({ user_name: 'gemelo3d', user_role: $('mlRole').value });
+    function fillClasses(classes) {
+      const key = classes.join(',');
+      if (key === classesKey) return;
+      classesKey = key;
+      for (const sel of [$('mlFrameLabel'), $('mlUploadLabel')]) {
+        sel.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
+      }
+    }
+    async function refresh() {
+      try {
+        const s = await call('/api/mlops/status');
+        const rs = s.recipe, ch = rs.champion, sh = rs.challenger;
+        fillClasses(rs.classes);
+        $('mlChamp').textContent = `${ch.version || '--'} · F1 ${(ch.metrics.f1_weighted || 0).toFixed(3)}`;
+        $('mlChall').textContent = `${sh.version || '--'} · F1 ${(sh.metrics.f1_weighted || 0).toFixed(3)}`;
+        $('mlData').textContent = `${rs.dataset.total} img (+${rs.dataset.new_since_champion} nuevas)`;
+        const d = s.drift || {};
+        $('mlPsi').textContent = d.status ? `${(d.psi || 0).toFixed(3)} ${d.status}` : '--';
+        $('mlPsi').style.color = d.status === 'DRIFT' ? '#f87171' : (d.status === 'WATCH' ? '#fbbf24' : '#34d399');
+        const j = s.job || {};
+        $('mlJob').textContent = `Job: ${j.state || 'IDLE'} ${j.message ? '· ' + j.message : ''}`;
+        last = s.last_inspection;
+        if (last && last.serial_number) {
+          $('mlFrame').src = API + '/' + last.image_rel_path + '?t=' + Date.now();
+          $('mlFrameInfo').innerHTML = `${last.serial_number} · edge: <b>${last.edge_defect_class}</b> (${(last.edge_confidence * 100).toFixed(0)}%)<br>origen: ${last.frame_source || ''}`;
+        }
+        const links = [];
+        if (s.mlflow.enabled) links.push(`<a style="color:#93c5fd" target="_blank" href="${s.mlflow.ui_url}">MLflow UI</a>`);
+        else links.push(`MLflow: ${s.mlflow.error || 'apagado'}`);
+        links.push(`DVC: ${s.dvc.enabled ? 'activo' : 'no inicializado'}`);
+        links.push(`Nube: ${s.cloud_auditor.mode}`);
+        $('mlLinks').innerHTML = links.join(' · ');
+      } catch (e) { say('Sin conexión con la API MLOps: ' + e.message, true); }
+    }
+    setInterval(() => { if (panel.classList.contains('open')) refresh(); }, 2500);
+    $('mlAddFrame').addEventListener('click', async () => {
+      if (!last) return say('Aún no hay piezas inspeccionadas', true);
+      try {
+        const r = await call('/api/mlops/label-frame', Object.assign({ serial_number: last.serial_number, label: $('mlFrameLabel').value }, user()));
+        say(`${r.created ? 'Agregada' : 'Ya existía'}: ${r.label} (split ${r.split})`); refresh();
+      } catch (e) { say(e.message, true); }
+    });
+    const toB64 = f => new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsDataURL(f); });
+    $('mlUpload').addEventListener('click', async () => {
+      const files = Array.from($('mlFiles').files || []);
+      if (!files.length) return say('Elige una o varias imágenes', true);
+      let ok = 0;
+      for (const f of files) {
+        try {
+          await call('/api/mlops/images', Object.assign({ label: $('mlUploadLabel').value, image_base64: await toB64(f), filename: f.name }, user()));
+          ok++; say(`Subiendo… ${ok}/${files.length}`);
+        } catch (e) { say(`${f.name}: ${e.message}`, true); }
+      }
+      say(`${ok}/${files.length} imágenes agregadas como ${$('mlUploadLabel').value}`); $('mlFiles').value = ''; refresh();
+    });
+    $('mlRetrain').addEventListener('click', async () => {
+      try { const r = await call('/api/mlops/retrain', Object.assign({ reason: 'gemelo 3D' }, user())); say('Reentrenamiento iniciado (job ' + r.job.job_id + ')'); refresh(); }
+      catch (e) { say(e.message, true); }
+    });
+    $('mlPromote').addEventListener('click', async () => {
+      if (!confirm('¿Promover el modelo SHADOW a PRODUCCIÓN? Pasará a decidir el rechazo en el PLC.')) return;
+      try { const r = await call('/api/mlops/promote', user()); say(`Promovido ${r.promoted_version} (antes ${r.previous_version})`); refresh(); }
+      catch (e) { say(e.message, true); }
+    });
+  })();
   </script>
 </body>
 </html>
