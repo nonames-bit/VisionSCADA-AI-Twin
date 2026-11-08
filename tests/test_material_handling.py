@@ -96,3 +96,13 @@ def test_manual_mode_commands(plc):
     assert plc.write_udt_tag("UDT_MaterialHandling", "Clear_OK_Bin_Cmd", True)["ok"]
     assert mh["Infeed_Count"] == mh["Infeed_Capacity"] and mh["OK_Bin_Count"] == 0
     assert mh["Refill_Infeed_Cmd"] is False and mh["Clear_OK_Bin_Cmd"] is False
+
+
+def test_no_deadlock_when_line_stops_while_agv_serves_infeed(plc):
+    # AGV heading to the infeed while the OK tote fills up and stops the line mid robot cycle
+    mh = plc.udts["UDT_MaterialHandling"]
+    mh["Infeed_Count"] = 9
+    mh["OK_Bin_Count"] = mh["OK_Bin_Capacity"] - 1
+    plc.run(90)
+    assert mh["AGV_Swaps_Total"] >= 2
+    assert plc.udts["UDT_ConveyorAxis"]["Running_FB"] is True
