@@ -371,7 +371,7 @@ class SoftPLCController:
             mh["Infeed_Count"] = mh["Infeed_Capacity"]
         mh["AGV_Swaps_Total"] += 1
 
-    def _step_agv(self, dt: float, running: bool = False):
+    def _step_agv(self, dt: float, running: bool):
         """AGV tote logistics: dock -> station -> swap totes -> dock."""
         mh = self.udts["UDT_MaterialHandling"]
         rej = self.udts["UDT_RejectActuator"]
