@@ -63,7 +63,16 @@ cd C:\dev\VisionSCADA_AI_Twin
 ```
 
 - **Main 5-View SCADA & MLOps Console**: `http://127.0.0.1:8020`
-- **Standalone 3D Three.js AOI Vision Cell**: `http://127.0.0.1:8020/cell3d`
+- **Standalone 3D Three.js AOI Vision Cell (realistic PBR, `static/cell3d_v2.html`)**: `http://127.0.0.1:8020/cell3d`
+- **Legacy low-poly 3D cell**: `http://127.0.0.1:8020/cell3d/legacy`
 - **Printable / PDF Shift Quality Report**: `http://127.0.0.1:8020/report`
 - **Soft-PLC OPC-UA Endpoint**: `opc.tcp://127.0.0.1:48420/visionscada/plc/`
 - **Ignition Perspective View**: `Perspective -> Views -> Celda_Vision_AOI_MLOps`
+
+### 🎥 Realistic 3D cell (`/cell3d`)
+
+- three.js r170 is vendored in `static/vendor/three/` (no internet needed on the OT network or inside the Ignition iframe).
+- PBR materials with procedural textures (epoxy floor, slotted aluminium profiles, rubber belt, cast iron, glass vials, PCB), factory-hall image-based lighting, 5000 K overhead panels, soft shadows, GTAO ambient occlusion, bloom and SMAA.
+- Parts follow the Soft-PLC FIFO (`pos_mm`, camera 300 mm → pusher 1100 mm), are pushed down the chute into the reject tote and pile up there (mirrors `Bin_Count`), OK parts drop into the OK tote.
+- Quality toggle (button or `Q`): *Alta* (GTAO, 2048 shadows, glass transmission) / *Baja*; it auto-downgrades below ~28 FPS. `R` toggles auto-orbit.
+- Optional `.glb` overrides in `static/models/`: `conveyor.glb`, `vis_gantry.glb`, `reject_pusher.glb`, `part_impeller.glb`, `part_vial.glb`, `part_pcb.glb`.
